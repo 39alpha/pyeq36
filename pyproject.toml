@@ -1,0 +1,65 @@
+[project]
+name = "eq36"
+version = "10.0.0"
+description = "EQ3/6 binaries and thin-wrappers"
+readme = "README.md"
+authors = [
+  { name = "39 Alpha Research, Team Zero", email = "39alpha@39alpharesearch.org" }
+]
+requires-python = ">=3.10"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = []
+
+[build-system]
+requires = ["hatchling", "hatch-build-scripts", "meson", "ninja"]
+build-backend = "hatchling.build"
+
+[project.urls]
+Repository = "https://github.com/39alpha/eq3_6.git"
+Issues = "https://github.com/39alpha/eq3_6/issues"
+
+[tool.hatch.build.targets.wheel.shared-scripts]
+"build/eqpt" = "eqpt"
+"build/eqpt.exe" = "eqpt.exe"
+"build/eq3nr" = "eq3nr"
+"build/eq3nr.exe" = "eq3nr.exe"
+"build/eq6" = "eq6"
+"build/eq6.exe" = "eq6.exe"
+
+[[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
+commands = [
+  'meson setup --reconfigure --buildtype=release build eq36',
+]
+artifacts = []
+
+[[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
+out_dir = "src/eq36"
+work_dir = "build"
+commands = [
+  'meson compile',
+]
+
+[dependency-groups]
+dev = [
+  "cibuildwheel",
+  "ipython",
+  "pyrefly",
+  "python-lsp-isort",
+  "python-lsp-server",
+  "ruff",
+]
+
+[tool.pyrefly]
+project-includes = ["src"]
+preset = "all"
+python-version = "3.14"
