@@ -7,7 +7,7 @@ on:
     branches: [ main, dev ]
 
 jobs:
-  linux:
+  all-platforms:
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
