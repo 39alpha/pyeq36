@@ -1,0 +1,13 @@
+"""Ensure that the compiles EQ36 binaries are installed."""
+
+import os
+from pathlib import Path
+
+import pytest
+
+
+@pytest.mark.parametrize("executable", ["eqpt", "eq3nr", "eq6"])
+def test_binaries_are_installed(executable: str) -> None:
+    """Ensure that the binaries are installed."""
+    found: list[Path] = [exe for p in os.get_exec_path() if (exe := Path(p) / executable).exists()]
+    assert any(str(exe).endswith(f".venv/bin/{executable}") for exe in found)
