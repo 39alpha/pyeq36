@@ -137,6 +137,6 @@ docstring-code-format = true
 docstring-code-line-length = 80
 
 [tool.pyrefly]
-project-includes = ["src"]
+project-includes = ["src", "tests"]
 preset = "all"
 python-version = "3.14"
