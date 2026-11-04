@@ -40,29 +40,26 @@ jobs:
         if-no-files-found: error
         retention-days: 10
 
-  # test_wheels:
-  #   needs: [build_wheels]
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
-  #       python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
-  #   runs-on: ${{ matrix.os }}
-  #   steps:
-  #   - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-  #   - run: uv python install ${{ matrix.python-version }}
-  #   - uses: actions/download-artifact@7
-  #     with:
-  #       name: ${{ matrix.os }}-wheels
-  #       path: wheelhouse
-  #   - name: Install wheel
-  #     shell: bash
-  #     run: |
-  #       PYVER=$(echo "${{ matrix.python-version }}" | tr -d '.')
-  #       uv tool install wheelhouse/eq36-*-cp${PYVER}-*.whl
-  #   - name: which eqpt
-  #     run: which eqpt
-  #   - name: which eq3nr
-  #     run: which eqpt
-  #   - name: which eq6
-  #     run: which eqpt
+  test_wheels:
+    needs: [build_wheels]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - run: uv python install ${{ matrix.python-version }}
+    - uses: actions/download-artifact@7
+      with:
+        name: ${{ matrix.os }}-wheels
+        path: wheelhouse
+    - name: Install wheel
+      shell: bash
+      run: |
+        PYVER=$(echo "${{ matrix.python-version }}" | tr -d '.')
+        uv tool install wheelhouse/eq36-*-cp${PYVER}-*.whl
+    - run: eqpt
+    - run: eq3nr
+    - run: eq6
