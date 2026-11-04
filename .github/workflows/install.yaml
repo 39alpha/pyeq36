@@ -11,8 +11,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
+        toolchain:
+        - {compiler: gcc, version: 'latest'}
     runs-on: ${{matrix.os}}
     steps:
+    - uses: fortran-lang/setup-fortran@v1
+      with:
+        compiler: ${{ matrix.toolchain.compiler }}
+        version: ${{ matrix.toolchain.version }}
     - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
     - uses: actions/checkout@v7
     - name: uv tool install .
