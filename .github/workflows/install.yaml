@@ -15,7 +15,7 @@ jobs:
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
     runs-on: ${{ matrix.os }}
     steps:
-    - if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-26-latest' }}
+    - if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-26-intel' }}
       uses: fortran-lang/setup-fortran@v1
       with:
         compiler: ${{ matrix.toolchain.compiler }}
