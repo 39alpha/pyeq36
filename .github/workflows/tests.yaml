@@ -47,4 +47,4 @@ jobs:
         python-version: '3.14'
     - uses: actions/checkout@v7
     - name: just test
-      run: just test --jobs=1
+      run: just test
