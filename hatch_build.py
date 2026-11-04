@@ -4,4 +4,3 @@ class CustomHook(BuildHookInterface):
     def initialize(self, version, build_data):
         build_data["infer_tag"] = True
         build_data["pure_python"] = False
-
