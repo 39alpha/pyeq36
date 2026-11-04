@@ -65,6 +65,77 @@ dev = [
   "ruff",
 ]
 
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+extend-exclude = ["eq36"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["eq36"]
+
+[tool.ruff.lint]
+extend-select = [
+  "ANN",
+  "ARG",
+  "ASYNC",
+  "B",
+  "C4",
+  "C90",
+  "COM",
+  "D",
+  "DTZ",
+  "E",
+  "EM",
+  "ERA",
+  "F",
+  "FA",
+  "FLY",
+  "FURB",
+  "G",
+  "I",
+  "ICN",
+  "INP",
+  "LOG",
+  "N",
+  "NPY",
+  "PD",
+  "PERF",
+  "PGH",
+  "PIE",
+  "PL",
+  "PT",
+  "PTH",
+  "PYI",
+  "Q",
+  "R",
+  "RET",
+  "RUF",
+  "SIM",
+  "SLF",
+  "SLOT",
+  "T20",
+  "TC",
+  "TD",
+  "TID",
+  "TRY",
+  "UP",
+  "W",
+]
+
+ignore = [
+  "BLE001",  # do not catch blind exceptions
+  "COM812",  # trailing commas
+  "PLC0415", # import should be at top-level
+  "SIM300",  # yoda conditions (sometimes they read better)
+  "TRY002",  # create your own exception
+  "D203",    # blank lines before class docstrings (conflict: D211)
+  "D212",    # multi-line summary first line (conflict: D213)
+]
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 80
+
 [tool.pyrefly]
 project-includes = ["src"]
 preset = "all"
