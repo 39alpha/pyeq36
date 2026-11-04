@@ -143,3 +143,4 @@ python-version = "3.14"
 
 [tool.cibuildwheel]
 build-frontend = "build[uv]"
+before-build = "uv sync"
