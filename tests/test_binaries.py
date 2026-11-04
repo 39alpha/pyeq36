@@ -13,5 +13,8 @@ def test_binaries_are_installed(executable: str) -> None:
     if sys.platform == "win32":
         executable += ".exe"
 
-    found: list[Path] = [exe for p in os.get_exec_path() if (exe := Path(p) / executable).exists()]
-    assert any(str(exe).endswith(f".venv/bin/{executable}") for exe in found)
+    found = [exe for p in os.get_exec_path() if (exe := Path(p) / executable).exists()]
+    assert len(found) != 0
+
+    local = [exe for exe in found if str(exe).endswith(f".venv/bin/{executable}")]
+    assert len(local) != 0
