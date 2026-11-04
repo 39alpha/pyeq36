@@ -7,53 +7,21 @@ on:
     branches: [ main, dev ]
 
 jobs:
-  linux:
+  install:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-26.04-arm]
-    runs-on: ${{matrix.os}}
+        os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+    runs-on: ${{ matrix.os }}
     steps:
-    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-    - uses: actions/checkout@v7
-    - name: uv tool install .
-      run: uv tool install .
-    - name: which eqpt
-      run: which eqpt
-    - name: which eq3nr
-      run: which eqpt
-    - name: which eq6
-      run: which eqpt
-
-  macos:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest]
-        toolchain:
-        - {compiler: gcc, version: '15'}
-    runs-on: ${{matrix.os}}
-    steps:
-    - uses: fortran-lang/setup-fortran@v1
+    - if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-26-latest' }}
+      uses: fortran-lang/setup-fortran@v1
       with:
         compiler: ${{ matrix.toolchain.compiler }}
         version: ${{ matrix.toolchain.version }}
     - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-    - uses: actions/checkout@v7
-    - name: uv tool install .
-      run: uv tool install .
-    - name: which eqpt
-      run: which eqpt
-    - name: which eq3nr
-      run: which eqpt
-    - name: which eq6
-      run: which eqpt
-
-  windows:
-    strategy:
-      matrix:
-        os: [windows-latest, windows-11-arm]
-    runs-on: ${{matrix.os}}
-    steps:
-    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - run: uv python install ${{ matrix.python-version }}
     - uses: actions/checkout@v7
     - name: uv tool install .
       run: uv tool install .
