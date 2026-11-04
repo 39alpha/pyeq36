@@ -10,7 +10,7 @@ jobs:
   unix:
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intell]
+        os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel]
         toolchain:
         - {compiler: gcc, version: 'latest'}
     runs-on: ${{matrix.os}}
