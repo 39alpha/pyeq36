@@ -63,3 +63,16 @@ jobs:
     - run: eqpt
     - run: eq3nr
     - run: eq6
+
+  build_sdist:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - uses: actions/checkout@v7
+    - run: uv build --sdist
+    - uses: actions/upload-artifact@v7
+      with:
+        name: sdist
+        path: dist/*.tar.gz
+        if-no-files-found: error
+        retention-days: 10
