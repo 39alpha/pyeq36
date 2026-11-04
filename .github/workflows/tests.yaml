@@ -26,6 +26,4 @@ jobs:
     - run: uv python install ${{ matrix.python-version }}
     - uses: extractions/setup-just@v4
     - uses: actions/checkout@v7
-    - name: just test
-      shell: bash
-      run: TERM=dumb just test
+    - run: just test
