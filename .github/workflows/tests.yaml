@@ -45,8 +45,6 @@ jobs:
     - uses: actions/setup-python@v7
       with:
         python-version: '3.14'
-    - name: install meson
-      run: python -m pip install meson
     - uses: actions/checkout@v7
     - name: just test
       run: just test --jobs=1
