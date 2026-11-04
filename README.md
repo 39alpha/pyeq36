@@ -1,5 +1,8 @@
 # PyEQ36
 
+[![Install](https://github.com/39alpha/pyeq36/actions/workflows/install.yaml/badge.svg)](https://github.com/39alpha/pyeq36/actions/workflows/install.yaml)
+[![Tests](https://github.com/39alpha/pyeq36/actions/workflows/test.yaml/badge.svg)](https://github.com/39alpha/pyeq36/actions/workflows/test.yaml)
+
 This package provides both compiled binaries of EQ3/6 and a thin Python wrapper
 for running those utilities.
 
