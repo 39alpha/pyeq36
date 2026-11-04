@@ -1,0 +1,26 @@
+name: Install
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  linux:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
+    runs-on: ${{matrix.os}}
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        submodules: recursive
+    - name: uv tool install .
+      run: uv tool install .
+    - name: which eqpt
+      run: which eqpt
+    - name: which eq3nr
+      run: which eqpt
+    - name: which eq6
+      run: which eqpt
