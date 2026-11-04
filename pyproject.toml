@@ -51,7 +51,6 @@ commands = [
 
 [dependency-groups]
 dev = [
-  "cibuildwheel",
   "codespell",
   "ipython",
   "pre-commit",
