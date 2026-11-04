@@ -140,3 +140,6 @@ docstring-code-line-length = 80
 project-includes = ["src", "tests"]
 preset = "all"
 python-version = "3.14"
+
+[tool.cibuildwheel]
+build-frontend = "build[uv]"
