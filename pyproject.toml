@@ -1,6 +1,6 @@
 [project]
 name = "eq36"
-version = "10.0.0"
+version = "0.1.0"
 description = "EQ3/6 binaries and thin-wrappers"
 readme = "README.md"
 authors = [
