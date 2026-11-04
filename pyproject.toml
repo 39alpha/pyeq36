@@ -49,6 +49,9 @@ commands = [
   'meson compile',
 ]
 
+[tool.hatch.build.targets.wheel.hooks.custom]
+path="hatch_build.py"
+
 [dependency-groups]
 dev = [
   "codespell",
