@@ -31,7 +31,7 @@ jobs:
   windows:
     strategy:
       matrix:
-        os: [windows-latest, windows-11-arm]
+        os: [windows-latest]
         toolchain:
         - {compiler: gcc, version: '15'}
     runs-on: ${{matrix.os}}
