@@ -52,9 +52,15 @@ commands = [
 [dependency-groups]
 dev = [
   "cibuildwheel",
+  "codespell",
   "ipython",
+  "pre-commit",
   "pyrefly",
+  "pytest",
+  "pytest-cov",
+  "pytest-mock",
   "python-lsp-isort",
+  "python-lsp-ruff",
   "python-lsp-server",
   "ruff",
 ]
