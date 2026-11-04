@@ -145,4 +145,5 @@ python-version = "3.14"
 
 [tool.cibuildwheel]
 build-frontend = "build[uv]"
+skip=["*-musllinux_*"]
 before-build = "uv sync"
