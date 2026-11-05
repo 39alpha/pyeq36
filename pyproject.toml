@@ -28,13 +28,10 @@ build-backend = "hatchling.build"
 Repository = "https://github.com/39alpha/eq3_6.git"
 Issues = "https://github.com/39alpha/eq3_6/issues"
 
-[tool.hatch.build.targets.wheel.shared-scripts]
-"build/eqpt" = "eqpt"
-"build/eqpt.exe" = "eqpt.exe"
-"build/eq3nr" = "eq3nr"
-"build/eq3nr.exe" = "eq3nr.exe"
-"build/eq6" = "eq6"
-"build/eq6.exe" = "eq6.exe"
+[project.scripts]
+eqpt = "eq36.cli:eqpt"
+eq3nr = "eq36.cli:eq3nr"
+eq6 = "eq36.cli:eq6"
 
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
 commands = [
@@ -43,11 +40,12 @@ commands = [
 artifacts = []
 
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
-out_dir = "src/eq36"
+out_dir = "src/eq36/bin"
 work_dir = "build"
 commands = [
   'meson compile',
 ]
+artifacts = ["eqpt", "eqpt.exe", "eq3nr", "eq3nr.exe", "eq6", "eq6.exe"]
 
 [tool.hatch.build.targets.wheel.hooks.custom]
 path="hatch_build.py"

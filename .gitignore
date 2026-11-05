@@ -1,2 +1,5 @@
 .python-version
 uv.lock
+
+# Artifacts
+src/eq36/bin
