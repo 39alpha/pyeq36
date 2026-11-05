@@ -33,6 +33,12 @@ eqpt = "eq36.cli:eqpt"
 eq3nr = "eq36.cli:eq3nr"
 eq6 = "eq36.cli:eq6"
 
+[tool.hatch.build.targets.wheel]
+artifacts=[
+  "*.exe",
+  "!build/*.exe"
+]
+
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
 commands = [
   'meson setup --reconfigure --buildtype=release build eq36',
