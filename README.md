@@ -9,11 +9,32 @@ for running those utilities.
 ## Installation
 
 ```sh
-$ pip install pyeq36
+$ pip install --user pyeq36
 ```
 or
 ```sh
 $ uv tool install pyeq36
+```
+
+## Usage
+
+You should have the primary EQ3/6 commands on your `PATH`, i.e.
+
+```sh
+$ eqpt
+ usage: eqpt <data0>
+```
+
+### Python Shims
+The commands that are on you `PATH` are actually python shims in order to make
+the bundled wheels self-contained. However, this introduces a small runtime
+penalty (~30ms for the command above compared to ~500us when executing the binary
+directly). For everyday usage, this shouldn't really affect you. However, if you
+cannot stand paying that penalty, you can explictly add the path to the binaries
+to your `PATH`. For example:
+
+```bash
+$ export PATH="$(python -c 'import eq36.paths; print(eq36.paths.get_bin())'):$PATH"
 ```
 
 ## Licensing
