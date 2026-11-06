@@ -11,19 +11,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
+        os:
+          - ubuntu-26.04
+          - ubuntu-26.04-arm
+          - macos-26
+          - macos-26-intel
+          - macos-15
+          - macos-15-intel
+          - windows-2025
+          - windows-11-arm
         toolchain:
-        - {compiler: gcc, version: '15'}
+          - { compiler: gcc, version: '15' }
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
     runs-on: ${{ matrix.os }}
     steps:
-    - if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-26-intel' }}
-      uses: fortran-lang/setup-fortran@v1
-      with:
-        compiler: ${{ matrix.toolchain.compiler }}
-        version: ${{ matrix.toolchain.version }}
-    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-    - run: uv python install ${{ matrix.python-version }}
-    - uses: extractions/setup-just@v4
-    - uses: actions/checkout@v7
-    - run: just test
+      - if: ${{ startsWith(matrix.os, 'macos') }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: ${{ matrix.toolchain.compiler }}
+          version: ${{ matrix.toolchain.version }}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: uv python install ${{ matrix.python-version }}
+      - uses: extractions/setup-just@v4
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - run: just test
