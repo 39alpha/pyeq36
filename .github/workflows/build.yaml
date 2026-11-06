@@ -6,6 +6,8 @@ on:
     tags: [ "v*" ]
   pull_request:
     branches: [ main, dev ]
+  release:
+    types: [ published ]
   workflow_dispatch:
 
 jobs:
@@ -26,27 +28,27 @@ jobs:
           - { compiler: gcc, version: '15' }
     runs-on: ${{ matrix.os }}
     steps:
-    - if: ${{ startsWith(matrix.os, 'macos') }}
-      uses: fortran-lang/setup-fortran@v1
-      with:
-        compiler: ${{ matrix.toolchain.compiler }}
-        version: ${{ matrix.toolchain.version }}
-    - uses: actions/setup-python@v7
-      with:
-        python-version: '3.15'
-    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-    - uses: actions/checkout@v7
-    - run: uv tool install cibuildwheel
-    - run: cibuildwheel --output-dir wheelhouse
-      env:
-        CIBW_BUILD_VERBOSITY: 1
-        MACOSX_DEPLOYMENT_TARGET: ${{ case(startsWith(matrix.os, 'macos-15'), 15.0, 26.0) }}
-    - uses: actions/upload-artifact@v7
-      with:
-        name: ${{ matrix.os }}-wheels
-        path: ./wheelhouse/*.whl
-        if-no-files-found: error
-        retention-days: 10
+      - if: ${{ startsWith(matrix.os, 'macos') }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: ${{ matrix.toolchain.compiler }}
+          version: ${{ matrix.toolchain.version }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.15'
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: actions/checkout@v7
+      - run: uv tool install cibuildwheel
+      - run: cibuildwheel --output-dir wheelhouse
+        env:
+          CIBW_BUILD_VERBOSITY: 1
+          MACOSX_DEPLOYMENT_TARGET: ${{ case(startsWith(matrix.os, 'macos-15'), 15.0, 26.0) }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.os }}-wheels
+          path: ./wheelhouse/*.whl
+          if-no-files-found: error
+          retention-days: 10
 
   test_wheels:
     needs: [build_wheels]
@@ -67,32 +69,49 @@ jobs:
           - { os: windows-11-arm, python-version: '3.10' }
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-    - uses: actions/setup-python@v7
-      with:
-        python-version: ${{ matrix.python-version }}
-    - uses: actions/download-artifact@v7
-      with:
-        name: ${{ matrix.os }}-wheels
-        path: wheelhouse
-    - name: Install wheel
-      shell: bash
-      run: |
-        PYVER=$(echo "${{ matrix.python-version }}" | tr -d '.')
-        uv tool install wheelhouse/eq36-*-cp${PYVER}-*.whl
-    - run: eqpt
-    - run: eq3nr
-    - run: eq6
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: ${{ matrix.os }}-wheels
+          path: wheelhouse
+      - name: Install wheel
+        shell: bash
+        run: |
+          PYVER=$(echo "${{ matrix.python-version }}" | tr -d '.')
+          uv tool install wheelhouse/eq36-*-cp${PYVER}-*.whl
+      - run: eqpt
+      - run: eq3nr
+      - run: eq6
 
   build_sdist:
     runs-on: ubuntu-latest
     steps:
-    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-    - uses: actions/checkout@v7
-    - run: uv build --sdist
-    - uses: actions/upload-artifact@v7
-      with:
-        name: sdist
-        path: dist/*.tar.gz
-        if-no-files-found: error
-        retention-days: 10
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: actions/checkout@v7
+      - run: uv build --sdist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 10
+
+  test_deploy:
+    needs: [build_wheels, test_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+      - run: ls -lh dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: false
+          verbose: true
