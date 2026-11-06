@@ -101,6 +101,8 @@ jobs:
   test_deploy:
     needs: [build_wheels, test_wheels, build_sdist]
     runs-on: ubuntu-26.04
+    environment:
+      name: testpypi
     permissions:
       id-token: write
     steps:
