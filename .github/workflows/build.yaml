@@ -133,5 +133,5 @@ jobs:
       - run: ls -lh dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          skip-existing: false
+          skip-existing: true
           verbose: true
