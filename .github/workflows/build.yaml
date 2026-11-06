@@ -13,12 +13,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
+        os:
+          - ubuntu-latest
+          - ubuntu-26.04-arm
+          - macos-26
+          - macos-26-intel
+          - macos-15
+          - macos-15-intel
+          - windows-latest
+          - windows-11-arm
         toolchain:
-        - {compiler: gcc, version: '15'}
+          - { compiler: gcc, version: '15' }
     runs-on: ${{ matrix.os }}
     steps:
-    - if: ${{ matrix.os == 'macos-latest' || matrix.os == 'macos-26-intel' }}
+    - if: ${{ startsWith(matrix.os, 'macos') }}
       uses: fortran-lang/setup-fortran@v1
       with:
         compiler: ${{ matrix.toolchain.compiler }}
@@ -32,7 +40,7 @@ jobs:
     - run: cibuildwheel --output-dir wheelhouse
       env:
         CIBW_BUILD_VERBOSITY: 1
-        MACOSX_DEPLOYMENT_TARGET: 26.0
+        MACOSX_DEPLOYMENT_TARGET: ${{ case(startsWith(matrix.os, 'macos-15'), 15.0, 26.0) }}
     - uses: actions/upload-artifact@v7
       with:
         name: ${{ matrix.os }}-wheels
@@ -45,7 +53,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-26.04-arm, macos-latest, macos-26-intel, windows-latest, windows-11-arm]
+        os:
+          - ubuntu-latest
+          - ubuntu-26.04-arm
+          - macos-26
+          - macos-26-intel
+          - macos-15
+          - macos-15-intel
+          - windows-latest
+          - windows-11-arm
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
         exclude:
           - { os: windows-11-arm, python-version: '3.10' }
