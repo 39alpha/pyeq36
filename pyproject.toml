@@ -74,7 +74,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py314"
-extend-exclude = ["eq36"]
+include = ["src/eq36/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["eq36"]
