@@ -142,6 +142,9 @@ jobs:
         with:
           name: ${{ matrix.os }}-wheels
           path: wheelhouse
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
       - shell: bash
         run: |
           PYVER=$(echo "${{ matrix.python-version }}" | tr -d '.')
