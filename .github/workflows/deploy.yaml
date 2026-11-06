@@ -48,7 +48,7 @@ jobs:
           name: ${{ matrix.os }}-wheels
           path: ./wheelhouse/*.whl
           if-no-files-found: error
-          retention-days: 10
+          retention-days: 2
 
   test_wheels:
     needs: [build_wheels]
@@ -96,7 +96,7 @@ jobs:
           name: sdist
           path: dist/*.tar.gz
           if-no-files-found: error
-          retention-days: 10
+          retention-days: 2
 
   test_deploy:
     needs: [build_wheels, test_wheels, build_sdist]
