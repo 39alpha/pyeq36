@@ -122,7 +122,7 @@ jobs:
     runs-on: ubuntu-26.04
     if: github.event_name == 'release' && github.event.action == 'published'
     environment:
-      name: ${{ secrets.PYPI_ENV_NAME }}
+      name: pypi
     permissions:
       id-token: write
     steps:
