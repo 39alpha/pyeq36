@@ -49,3 +49,15 @@ repl:
 [doc('Watch files and run a just command if they change')]
 watch cmd="test" ext="py" *args:
     watchexec -r -c -e {{ext}} -- just {{cmd}} {{args}}
+
+[group('docs')]
+[doc("Generate docs")]
+docs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    PROJECT_NUMBER=$(git describe --tags) doxygen Doxyfile
+
+[group('docs')]
+[doc("Serve the documents")]
+docs-serve port="5555":
+    uv run --directory=docs/_site -- python -m http.server {{port}}
