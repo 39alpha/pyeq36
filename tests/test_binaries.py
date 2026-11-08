@@ -8,6 +8,7 @@ so we skip this test.
 import os
 import sys
 from pathlib import Path
+from subprocess import PIPE, Popen
 
 import pytest
 
@@ -27,3 +28,19 @@ def test_binaries_are_installed(executable: str) -> None:
 
     local = [exe for exe in found if str(exe).endswith(f".venv/bin/{executable}")]
     assert len(local) != 0
+
+
+@pytest.mark.parametrize("executable", ["eqpt", "eq3nr", "eq6"])
+def test_binaries_are_executable(executable: str) -> None:
+    """
+    Ensure that the binaries are executable.
+
+    We do this by finding the executable and ensuring that we can execute it.
+    """
+    found = [exe for p in os.get_exec_path() if (exe := Path(p) / executable).exists()]
+    local = [exe for exe in found if str(exe).endswith(f".venv/bin/{executable}")]
+    cmd = local[0]
+    process = Popen([cmd], stdout=PIPE, stderr=PIPE)
+    stdout, stderr = process.communicate(timeout=100)
+    assert len(stdout) == 0
+    assert stderr.startswith(b" usage:")

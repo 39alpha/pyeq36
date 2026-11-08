@@ -147,6 +147,9 @@ project-includes = ["src", "tests"]
 preset = "all"
 python-version = "3.14"
 
+[tool.pyrefly.errors]
+implicit-bool = "ignore"
+
 [tool.cibuildwheel]
 build-frontend = "build[uv]"
 build=["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*", "cp315-*"]
