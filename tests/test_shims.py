@@ -1,5 +1,5 @@
 """
-Ensure that the compiles EQ36 binaries are installed.
+Ensure that the EQ3/6 shim scripts are installed and executable.
 
 **Linux and MacOS Only**: It is tricky to find installed excutables on Windows,
 so we skip this test.
@@ -17,9 +17,9 @@ if sys.platform.startswith("win"):
 
 
 @pytest.mark.parametrize("executable", ["eqpt", "eq3nr", "eq6"])
-def test_binaries_are_installed(executable: str) -> None:
+def test_shims_are_installed(executable: str) -> None:
     """
-    Ensure that the binaries are installed.
+    Ensure that the shims are installed.
 
     We do this by explicitly searching the path for .venv/bin/{executable}.
     """
@@ -31,9 +31,9 @@ def test_binaries_are_installed(executable: str) -> None:
 
 
 @pytest.mark.parametrize("executable", ["eqpt", "eq3nr", "eq6"])
-def test_binaries_are_executable(executable: str) -> None:
+def test_shims_are_executable(executable: str) -> None:
     """
-    Ensure that the binaries are executable.
+    Ensure that the shims are executable.
 
     We do this by finding the executable and ensuring that we can execute it.
     """
