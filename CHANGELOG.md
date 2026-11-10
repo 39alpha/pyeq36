@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `just docs-serve`.
 - **Code coverage** reports with `just coverage` and `just coverage-serve`.
 - **Test suite** covering the full `eq36` package.
-- **AI agents policy** in `AGENTS.md`, summarized in the README.
+- **AI agents policy** in `AGENTS.md`, summarized in `README.md`.
 
 ### Changed
 

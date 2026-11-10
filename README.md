@@ -12,7 +12,7 @@ e.g. code review, documentation, development tooling and test improvements.
 Agents are strictly prohibited from modifying the logic of non-test sources,
 and changes to tests should be targeted and reviewed by a human before commit.
 
-For more information, see [](AGENTS.md).
+For more information, see [`AGENTS.md`](AGENTS.md).
 
 ## Installation
 
@@ -36,10 +36,10 @@ $ eqpt
 ### Python Shims
 The commands that are on you `PATH` are actually python shims in order to make
 the bundled wheels self-contained. However, this introduces a small runtime
-penalty (~30ms for the command above compared to ~500us when executing the binary
-directly). For everyday usage, this shouldn't really affect you. However, if you
-cannot stand paying that penalty, you can explicitly add the path to the binaries
-to your `PATH`. For example:
+penalty (`~30ms` for the command above compared to `~500us` when executing the
+binary directly). For everyday usage, this shouldn't really affect you. However,
+if you cannot stand paying that penalty, you can explicitly add the path to the
+binaries to your `PATH`. For example:
 
 ```bash
 $ export PATH="$(python -c 'import eq36.paths; print(eq36.paths.get_bin())'):$PATH"
@@ -51,7 +51,7 @@ This repo includes the source files for
 [EQ3/6 v8.0a](https://www-gs.llnl.gov/energy-homeland-security/geochemistry),
 a software package for geochemical modeling developed by Thomas Wolery at
 Lawrence Livermore National Laboratory under the
-[BSD 3-Clause License](https://github.com/39alpha/pyeq36/blob/main/eq36/LICENSE).
+[BSD 3-Clause License](https://github.com/39alpha/eq36/blob/main/LICENSE).
 
 ## References
 
