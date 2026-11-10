@@ -5,6 +5,15 @@
 This package provides both compiled binaries of EQ3/6 and a thin Python wrapper
 for running those utilities.
 
+## AI Usage Statement
+
+This project uses AI agents for general quality assurance and automation,
+e.g. code review, documentation, development tooling and test improvements.
+Agents are strictly prohibited from modifying the logic of non-test sources,
+and changes to tests should be targeted and reviewed by a human before commit.
+
+For more information, see [](AGENTS.md).
+
 ## Installation
 
 ```sh
@@ -29,7 +38,7 @@ The commands that are on you `PATH` are actually python shims in order to make
 the bundled wheels self-contained. However, this introduces a small runtime
 penalty (~30ms for the command above compared to ~500us when executing the binary
 directly). For everyday usage, this shouldn't really affect you. However, if you
-cannot stand paying that penalty, you can explictly add the path to the binaries
+cannot stand paying that penalty, you can explicitly add the path to the binaries
 to your `PATH`. For example:
 
 ```bash
