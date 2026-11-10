@@ -75,6 +75,6 @@ docs:
     PROJECT_NUMBER=$(git describe --tags) doxygen Doxyfile
 
 [group('docs')]
-[doc("Serve the documents")]
+[doc("Serve the documentation")]
 docs-serve port="5555":
     uv run --directory=docs/_site -- python -m http.server {{port}}
