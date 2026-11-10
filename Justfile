@@ -3,7 +3,7 @@ default:
 
 [group('quality assurance')]
 [doc('Run pre-commit hooks and the full test suite')]
-check: pre-commit test
+check: pre-commit spellcheck-batch test
 
 [group('quality assurance')]
 [doc('Run all pre-commit hooks')]
@@ -47,15 +47,44 @@ typecheck *args:
 
 [group('quality assurance')]
 [doc('Spellcheck all source code and documentation')]
-spellcheck *args:
+spellcheck:
     #!/usr/bin/env bash
-    set -eou pipefail
-    uv run -- codespell -i 3 src tests
+    set -euo pipefail
+    uv run -- codespell -w -i 3 src tests Justfile pyproject.toml .github
 
     PERSONAL="{{justfile_directory()}}/.aspell"
-    aspell check --personal="${PERSONAL}" README.md
-    aspell check --personal="${PERSONAL}" CHANGELOG.md
-    aspell check --personal="${PERSONAL}" AGENTS.md
+    while IFS= read -r -d '' file; do
+        aspell check --dont-backup --mode=markdown --personal="${PERSONAL}" "${file}" < /dev/tty
+    done < <("{{just_executable()}}" markdown-files)
+
+[group('quality assurance')]
+[doc('Spellcheck all source code and documentation without prompting, failing if any errors are found')]
+spellcheck-batch:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    status=0
+    uv run -- codespell src tests Justfile pyproject.toml .github || status=1
+
+    PERSONAL="{{justfile_directory()}}/.aspell"
+    while IFS= read -r -d '' file; do
+        words=$(aspell list --mode=markdown --personal="${PERSONAL}" < "${file}" | sort -u)
+        if [[ -n "${words}" ]]; then
+            echo "${file}: unknown words"
+            echo "${words}" | sed 's/^/    /'
+            status=1
+        fi
+    done < <("{{just_executable()}}" markdown-files)
+    exit "${status}"
+
+# List the Markdown files to spellcheck, separated by NUL characters
+[private]
+markdown-files:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    find . -maxdepth 1 -name '*.md' -print0
+    if [[ -d docs ]]; then
+        find docs -name '*.md' -not -path 'docs/_site/*' -print0
+    fi
 
 [group('dev')]
 [doc('Start an IPython session')]
