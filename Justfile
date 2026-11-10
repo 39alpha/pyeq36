@@ -38,7 +38,14 @@ typecheck *args:
 [group('quality assurance')]
 [doc('Spellcheck all source code and documentation')]
 spellcheck *args:
-    uv run codespell
+    #!/usr/bin/env bash
+    set -eou pipefail
+    uv run -- codespell -i 3 src tests
+
+    PERSONAL="{{justfile_directory()}}/.aspell"
+    aspell check --personal="${PERSONAL}" README.md
+    aspell check --personal="${PERSONAL}" CHANGELOG.md
+    aspell check --personal="${PERSONAL}" AGENTS.md
 
 [group('dev')]
 [doc('Start an IPython session')]
