@@ -1,14 +1,19 @@
-personal_ws-1.1 en 16 
+personal_ws-1.1 en 21
+CI
 Changelog
 Doxyfile
+Doxygen
 EQ
 Github
 Jarek
 Justfile
 PyEQ
+Pyrefly
+README
 USDOE
 Wolery
 docstrings
+enum
 formatter
 geochemical
 linter

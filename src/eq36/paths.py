@@ -1,7 +1,7 @@
 """
 Provide path resolution utilities.
 
-These function centralize file resolution, e.g. finding the correct binary
+These functions centralize file resolution, e.g. finding the correct binary
 executable to be run.
 """
 
@@ -15,7 +15,9 @@ def get_bin() -> Path:
 
     This directory contains the compiled binaries for EQ3/6.
 
-    A `RuntimeError` is raised if the expected directory does not exist.
+    @return The resolved path to the `bin` directory
+
+    @throws RuntimeError if the expected directory does not exist
     """
     binpath = (Path(__file__).parent / "bin").resolve()
     if not binpath.is_dir():
@@ -29,15 +31,20 @@ def get_execpath(cmd: str | Path) -> Path:
     Get the path to an executable in the project `bin` directory.
 
     This routine ensures that the `cmd` is appropriately suffixed with `'.exe'`
-    on windows machines.
+    on Windows machines.
 
-    A `RuntimeError` is raised if the file is not found.
+    @param cmd The name of the command to search for, e.g. `"eq6"`
+
+    @return The resolved path to the executable
+
+    @throws RuntimeError if the `bin` directory does not exist
+    @throws RuntimeError if the executable is not found in the `bin` directory
     """
     suffix = ".exe" if sys.platform.startswith("win") and not str(cmd).endswith(".exe") else ""
     execpath = (get_bin() / (str(cmd) + suffix)).resolve()
     if not execpath.is_file():
         msg = f"{execpath!s} command not found"
-        raise Exception(msg)
+        raise RuntimeError(msg)
     return execpath
 
 

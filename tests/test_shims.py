@@ -1,7 +1,7 @@
 """
 Ensure that the EQ3/6 shim scripts are installed and executable.
 
-**Linux and MacOS Only**: It is tricky to find installed excutables on Windows,
+**Linux and MacOS Only**: It is tricky to find installed executables on Windows,
 so we skip this test.
 """
 
@@ -17,11 +17,15 @@ if sys.platform.startswith("win"):
 
 
 @pytest.mark.parametrize("executable", ["eqpt", "eq3nr", "eq6"])
-def test_shims_are_installed(executable: str) -> None:
+def test_shims_are_installed_and_executable(executable: str) -> None:
     """
-    Ensure that the shims are installed.
+    Ensure that the shims are installed and executable.
 
-    We do this by explicitly searching the path for .venv/bin/{executable}.
+    We do this by explicitly searching the path for `.venv/bin/{executable}`
+    and executing it without arguments, expecting nothing on `stdout` and a
+    usage message on `stderr`.
+
+    @param executable The name of the EQ3/6 shim to search for
     """
     found = [exe for p in os.get_exec_path() if (exe := Path(p) / executable).exists()]
     assert len(found) != 0
@@ -29,16 +33,6 @@ def test_shims_are_installed(executable: str) -> None:
     local = [exe for exe in found if str(exe).endswith(f".venv/bin/{executable}")]
     assert len(local) != 0
 
-
-@pytest.mark.parametrize("executable", ["eqpt", "eq3nr", "eq6"])
-def test_shims_are_executable(executable: str) -> None:
-    """
-    Ensure that the shims are executable.
-
-    We do this by finding the executable and ensuring that we can execute it.
-    """
-    found = [exe for p in os.get_exec_path() if (exe := Path(p) / executable).exists()]
-    local = [exe for exe in found if str(exe).endswith(f".venv/bin/{executable}")]
     cmd = local[0]
     process = Popen([cmd], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate(timeout=100)
