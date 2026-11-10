@@ -15,6 +15,16 @@ pre-commit:
 test *args:
     uv run pytest {{args}}
 
+[group('test')]
+[doc('Run all tests and report code coverage; extra arguments are passed to pytest')]
+coverage *args:
+    uv run pytest --cov --cov-report=term --cov-report=html {{args}}
+
+[group('test')]
+[doc('Serve HTML coverage report')]
+coverage-serve port="5556":
+    uv run --directory=htmlcov -- python -m http.server {{port}}
+
 [group('quality assurance')]
 [doc('Lint with ruff; extra arguments are passed to ruff')]
 lint *args:
