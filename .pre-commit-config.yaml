@@ -16,6 +16,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: audit-workflows
+        name: audit workflows
+        entry: just audit-workflows
+        language: system
+        pass_filenames: false
+        files: ^\.github/
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

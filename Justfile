@@ -46,6 +46,11 @@ typecheck *args:
     uv run pyrefly check {{args}}
 
 [group('quality assurance')]
+[doc('Audit GitHub workflows and Dependabot configuration with zizmor; extra arguments are passed to zizmor')]
+audit-workflows *args:
+    uv run zizmor {{args}} .github
+
+[group('quality assurance')]
 [doc('Spellcheck all source code and documentation')]
 spellcheck:
     #!/usr/bin/env bash
