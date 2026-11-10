@@ -45,6 +45,27 @@ binaries to your `PATH`. For example:
 $ export PATH="$(python -c 'import eq36.paths; print(eq36.paths.get_bin())'):$PATH"
 ```
 
+### Using Your Own Binaries
+You may want to use EQ3/6 binaries other than those bundled with `pyeq36`, for
+example to run a legacy version of EQ3/6 or your own fork. If you have built and
+installed the binaries yourself, you can tell `pyeq36` to use them by setting
+the `EQ36_BIN` environment variable to the directory containing them. For
+example:
+
+```bash
+$ export EQ36_BIN="/usr/local/bin"
+```
+
+The directory must contain the `eqpt`, `eq3nr` and `eq6` binaries (with an
+`.exe` suffix on Windows). Both the commands on your `PATH` and the Python
+functions will then run your binaries. A leading `~` is expanded, relative
+paths are resolved against the current working directory, and an empty value
+is ignored.
+
+Don't install your binaries into the same directory as the `pyeq36` commands,
+e.g. `~/.local/bin` when using `pip install --user`. The two have the same
+names, so one will overwrite the other.
+
 ## Licensing
 
 This repo includes the source files for

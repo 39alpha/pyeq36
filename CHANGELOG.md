@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`Eq36Error`** exception, raised when a binary reports an error, exits with
   a non-zero code or times out.
 - **`RunCode`** enum of the error codes carried by `Eq36Error`.
+- **`EQ36_BIN`** environment variable to use EQ3/6 binaries installed outside of
+  the package.
 - **`typing_extensions`** runtime dependency.
 - **Doxygen documentation**, built with `just docs` and served with
   `just docs-serve`.

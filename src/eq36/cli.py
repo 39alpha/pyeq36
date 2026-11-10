@@ -17,8 +17,9 @@ source and then provide our own shims.
 
 import os
 import sys
+from pathlib import Path
 
-from eq36.paths import get_execpath
+from eq36.paths import get_execpath, remove_exe
 
 
 def _run(cmd: str) -> None:
@@ -26,15 +27,21 @@ def _run(cmd: str) -> None:
     Replace the running process with `cmd`, passing `sys.argv`.
 
     The `cmd` is expected to be an EQ3/6 executable that the `get_execpath`
-    function can resolve, e.g. one installed as part of this package. Arguments
-    from `sys.argv` are passed on to the executable.
+    function can resolve, e.g. one installed as part of this package or in the
+    directory given by `EQ36_BIN`. Arguments from `sys.argv` are passed on to
+    the executable.
+
+    If the executable resolves to the running script, e.g. because `EQ36_BIN`
+    is the directory containing the shims, an error is raised rather than
+    endlessly re-running the shim.
 
     @private
 
     @param cmd The name of the command to be run, e.g. `"eq6"`
 
-    @throws RuntimeError if the package `bin` directory does not exist
-    @throws Exception if `cmd` is not found in the package `bin` directory
+    @throws RuntimeError if the `bin` directory does not exist
+    @throws RuntimeError if `cmd` is not found in the `bin` directory
+    @throws RuntimeError if `cmd` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
     @warning This function calls `os.execv` which replaces the current running
@@ -42,7 +49,17 @@ def _run(cmd: str) -> None:
     want to call it from a script unless you're not planning on doing anything
     else.
     """
-    os.execv(get_execpath(cmd), sys.argv)
+    this_script = Path(sys.argv[0]).resolve()
+    target = get_execpath(cmd)
+    if remove_exe(target) == remove_exe(this_script):
+        msg = (
+            f"cannot run the target command {str(target)!r} because it points "
+            "to a shim script; this is likely because EQ36_BIN was set to the "
+            "directory containing the shims"
+        )
+        raise RuntimeError(msg)
+
+    os.execv(target, sys.argv)
 
 
 def eqpt() -> None:
@@ -51,8 +68,9 @@ def eqpt() -> None:
 
     This is the entry point for the `eqpt` script installed with this package.
 
-    @throws RuntimeError if the package `bin` directory does not exist
-    @throws Exception if `eqpt` is not found in the package `bin` directory
+    @throws RuntimeError if the `bin` directory does not exist
+    @throws RuntimeError if `eqpt` is not found in the `bin` directory
+    @throws RuntimeError if `eqpt` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
     @warning This function does not return on success; see `_run`.
@@ -66,8 +84,9 @@ def eq3nr() -> None:
 
     This is the entry point for the `eq3nr` script installed with this package.
 
-    @throws RuntimeError if the package `bin` directory does not exist
-    @throws Exception if `eq3nr` is not found in the package `bin` directory
+    @throws RuntimeError if the `bin` directory does not exist
+    @throws RuntimeError if `eq3nr` is not found in the `bin` directory
+    @throws RuntimeError if `eq3nr` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
     @warning This function does not return on success; see `_run`.
@@ -81,8 +100,9 @@ def eq6() -> None:
 
     This is the entry point for the `eq6` script installed with this package.
 
-    @throws RuntimeError if the package `bin` directory does not exist
-    @throws Exception if `eq6` is not found in the package `bin` directory
+    @throws RuntimeError if the `bin` directory does not exist
+    @throws RuntimeError if `eq6` is not found in the `bin` directory
+    @throws RuntimeError if `eq6` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
     @warning This function does not return on success; see `_run`.
