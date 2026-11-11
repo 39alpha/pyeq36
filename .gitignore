@@ -4,6 +4,7 @@ uv.lock
 
 # Artifacts
 src/eq36/bin
+src/eq36/lib
 
 # Generated docs
 docs/_site

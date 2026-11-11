@@ -55,17 +55,31 @@ artifacts=[
 
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
 commands = [
-  'meson setup --reconfigure --buildtype=release build eq36',
+  'meson setup --reconfigure --buildtype=release build/eq36 eq36',
 ]
 artifacts = []
 
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
 out_dir = "src/eq36/bin"
-work_dir = "build"
+work_dir = "build/eq36"
 commands = [
   'meson compile',
 ]
 artifacts = ["eqpt", "eqpt.exe", "eq3nr", "eq3nr.exe", "eq6", "eq6.exe"]
+
+[[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
+commands = [
+  'meson setup --reconfigure --buildtype=release build/pyeq36',
+]
+artifacts = []
+
+[[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
+out_dir = "src/eq36/lib"
+work_dir = "build/pyeq36"
+commands = [
+  'meson compile',
+]
+artifacts = ["*.so", "*.dylib", "*.dll"]
 
 [tool.hatch.build.targets.wheel.hooks.custom]
 path="hatch_build.py"
@@ -181,5 +195,6 @@ before-build = "uv sync"
 
 [tool.codespell]
 ignore-words-list = [
+  "inout",
   "openin",
 ]
