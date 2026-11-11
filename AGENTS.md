@@ -1,4 +1,4 @@
-# Guidance for the Use of Agents in the Development of PyEQ36
+# Guidance for AI Use
 
 We believe that science and software development ought to be human enterprises.
 However, we acknowledge that many of the tasks associated with both are tedious,

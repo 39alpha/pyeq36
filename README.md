@@ -5,7 +5,7 @@
 This package provides both compiled binaries of EQ3/6 and a thin Python wrapper
 for running those utilities.
 
-## AI Usage Statement
+## AI Use Statement
 
 This project uses AI agents for general quality assurance and automation,
 e.g. code review, documentation, development tooling and test improvements.
@@ -17,11 +17,11 @@ For more information, see [`AGENTS.md`](AGENTS.md).
 ## Installation
 
 ```sh
-$ pip install --user pyeq36
+$ pip install --user eq36
 ```
 or
 ```sh
-$ uv tool install pyeq36
+$ uv tool install eq36
 ```
 
 ## Usage
