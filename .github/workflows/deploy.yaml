@@ -156,10 +156,9 @@ jobs:
           persist-credentials: false
       - shell: bash
         run: |
-          PYVER=$(echo "${{ matrix.python-version }}" | tr -d '.')
           mkdir tmp
-          uv init --directory=tmp --no-workspace
-          uv add --project=tmp wheelhouse/eq36-*-cp${PYVER}-*.whl pytest
+          uv init --directory=tmp --no-workspace --python "${{ matrix.python-version }}"
+          uv add --project=tmp wheelhouse/eq36-*-py3-none-*.whl pytest
           uv run --project=tmp pytest
       - run: uv run --project=tmp eqpt
       - run: uv run --project=tmp eq3nr
