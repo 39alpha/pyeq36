@@ -36,8 +36,11 @@ requires = ["hatchling", "hatch-build-scripts", "meson", "ninja"]
 build-backend = "hatchling.build"
 
 [project.urls]
-Repository = "https://github.com/39alpha/eq3_6.git"
-Issues = "https://github.com/39alpha/eq3_6/issues"
+Repository = "https://github.com/39alpha/pyeq36"
+Issues = "https://github.com/39alpha/pyeq36/issues"
+Documentation = "https://39alpha.github.io/pyeq36/"
+Changelog = "https://github.com/39alpha/pyeq36/blob/main/CHANGELOG.md"
+"EQ3/6 Source" = "https://github.com/39alpha/eq36"
 
 [project.scripts]
 eqpt = "eq36.cli:eqpt"
