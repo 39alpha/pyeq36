@@ -3,6 +3,8 @@ name = "eq36"
 version = "0.1.0"
 description = "EQ3/6 binaries and thin-wrappers"
 readme = "README.md"
+license = "MIT AND BSD-3-Clause"
+license-files = ["LICENSE", "eq36/LICENSE"]
 authors = [
   { name = "39 Alpha Research, Team Zero", email = "39alpha@39alpharesearch.org" }
 ]
@@ -16,7 +18,6 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3.15",
   "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent",
 ]
 dependencies = [
   "typing_extensions>=4.4"

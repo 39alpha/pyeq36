@@ -68,11 +68,19 @@ names, so one will overwrite the other.
 
 ## Licensing
 
-This repo includes the source files for
-[EQ3/6 v8.0a](https://www-gs.llnl.gov/energy-homeland-security/geochemistry),
-a software package for geochemical modeling developed by Thomas Wolery at
-Lawrence Livermore National Laboratory under the
+This project is released under the [MIT License](LICENSE) which applies to the
+Python code in this project. EQ3/6, including the bundled binaries and our
+modifications, is distributed under the
 [BSD 3-Clause License](https://github.com/39alpha/eq36/blob/main/LICENSE).
+
+This package includes compiled binaries of a modified version of
+[EQ3/6 v8.0a](https://www-gs.llnl.gov/energy-homeland-security/geochemistry),
+a software package for geochemical modeling originally developed by Thomas
+Wolery at Lawrence Livermore National Laboratory. Copyright for the original
+sources is held by The Regents of the University of California, Lawrence
+Livermore National Laboratory. Our version, maintained at
+[`39alpha/eq36`](https://github.com/39alpha/eq36), includes bug fixes and a port
+from FORTRAN 77 to Fortran 2008, though more changes are planned for the future.
 
 ## References
 
