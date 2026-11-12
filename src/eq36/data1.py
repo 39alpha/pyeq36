@@ -375,10 +375,11 @@ class TPCurve:
         @return `False` if there are no intersections and neither endpoint is
                 in the rectangle, `True` otherwise
 
-        @throws Exception  if there are no intersections and exactly one
-                endpoint is in the rectangle
-        @throws ValueError if a temperature evaluated is outside of the current
-                domain (see todo)
+        @throws RuntimeError if there are no intersections but exactly one
+                endpoint is in the rectangle, which indicates a bug in
+                `find_boundary_intersections`
+        @throws ValueError   if a temperature evaluated is outside of the
+                current domain (see todo)
 
         @todo The search and evaluations use the current domain, so calling
               this on an already-restricted curve can raise `ValueError` (e.g.
@@ -390,7 +391,6 @@ class TPCurve:
         @todo The return value is `True` whenever there are intersections,
               even if the resulting domain is empty. Consider returning
               `bool(self.domain)`.
-        @todo Raises a bare `Exception`; consider a more specific type.
         """
         temp_min, temp_max = temperature_range
         press_min, press_max = pressure_range
@@ -409,8 +409,8 @@ class TPCurve:
             if endpoints == 0:
                 not_empty = False
             elif endpoints == 1:
-                msg = "expected to find intersections or both points inside/outside region"
-                raise Exception(msg)
+                msg = "no boundary intersections found, but exactly one endpoint is inside the rectangle"
+                raise RuntimeError(msg)
             else:
                 domain = [(self.temperature["min"], self.temperature["max"])]
         elif len(intersections) == 1:

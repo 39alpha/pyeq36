@@ -191,12 +191,12 @@ def test_set_domain_without_intersections_inside_region(mocker: MockerFixture) -
 
 def test_set_domain_without_intersections_rejects_one_endpoint_inside(mocker: MockerFixture) -> None:
     """
-    Ensure that `set_domain` raises if there are no intersections but exactly one endpoint is in the region.
+    Ensure that `set_domain` raises a `RuntimeError` for no intersections but exactly one endpoint in the region.
 
     @param mocker The pytest-mock mocker fixture
     """
     mock_intersections(mocker, [])
-    with pytest.raises(Exception, match="expected to find intersections"):
+    with pytest.raises(RuntimeError, match="no boundary intersections found"):
         _ = constant_curve().set_domain(interval(0.0, 3.0), interval(0.0, 2.0))
 
 
@@ -352,8 +352,7 @@ def test_sample_chooses_between_single_point_domains(domains: list[list[FloatRan
 
     assert set(sampled_temps.tolist()) == {2.0, 7.0}
     assert all(
-        curve.temperature_in_domain(temp)
-        for temp, curve in zip(sampled_temps.tolist(), sampled_curves, strict=True)
+        curve.temperature_in_domain(temp) for temp, curve in zip(sampled_temps.tolist(), sampled_curves, strict=True)
     )
 
 
