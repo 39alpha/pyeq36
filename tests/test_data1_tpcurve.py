@@ -326,3 +326,78 @@ def test_sample(
     assert list(sampled_presses) == [1.0] * len(uniform)
     assert len(sampled_curves) == len(selected)
     assert all(curve is curves[i] for curve, i in zip(sampled_curves, selected, strict=True))
+
+
+@pytest.mark.parametrize(
+    "domains",
+    [
+        [[interval(2.0, 2.0)], [interval(7.0, 7.0)]],
+        [[interval(2.0, 2.0), interval(7.0, 7.0)]],
+        [[interval(2.0, 2.0)], [interval(7.0, 7.0)], []],
+    ],
+    ids=["one-point-per-curve", "two-points-on-one-curve", "with-empty-domain"],
+)
+def test_sample_chooses_between_single_point_domains(domains: list[list[FloatRange]]) -> None:
+    """
+    Ensure that `sample` draws from every point if the union of the domains consists only of single points.
+
+    The union has zero length, so the temperatures cannot be drawn by length;
+    instead, each sample should come from one of the points, chosen at random.
+
+    @param domains The domains of the curves, whose union is the points `2` and `7`
+    """
+    curves = [constant_curve(domain) for domain in domains]
+
+    sampled_temps, _, sampled_curves = TPCurve.sample(curves, 100, rng=np.random.default_rng(0))
+
+    assert set(sampled_temps.tolist()) == {2.0, 7.0}
+    assert all(
+        curve.temperature_in_domain(temp)
+        for temp, curve in zip(sampled_temps.tolist(), sampled_curves, strict=True)
+    )
+
+
+@pytest.mark.parametrize("num_samples", [0, 3])
+@pytest.mark.parametrize("domains", [[], [[], []]], ids=["no-curves", "empty-domains"])
+def test_sample_returns_nothing_to_sample(domains: list[list[FloatRange]], num_samples: int) -> None:
+    """
+    Ensure that `sample` returns no temperatures, pressures or curves if there is nothing to sample.
+
+    There is nothing to sample if there are no curves, or if every curve's
+    domain is empty (e.g. after `set_domain` with a rectangle that no curve
+    passes through).
+
+    @param domains     The domains of the curves
+    @param num_samples The number of points to sample
+    """
+    curves = [constant_curve(domain) for domain in domains]
+
+    sampled_temps, sampled_presses, sampled_curves = TPCurve.sample(
+        curves,
+        num_samples,
+        rng=np.random.default_rng(0),
+    )
+
+    assert sampled_temps.size == 0
+    assert sampled_presses.size == 0
+    assert sampled_curves == []
+
+
+@pytest.mark.parametrize(
+    "domains",
+    [[[interval(0.0, 10.0)]], [[interval(2.0, 2.0)], [interval(7.0, 7.0)]]],
+    ids=["intervals", "single-points"],
+)
+def test_sample_returns_nothing_for_zero_samples(domains: list[list[FloatRange]]) -> None:
+    """
+    Ensure that `sample` returns no temperatures, pressures or curves if no samples are requested.
+
+    @param domains The (non-empty) domains of the curves
+    """
+    curves = [constant_curve(domain) for domain in domains]
+
+    sampled_temps, sampled_presses, sampled_curves = TPCurve.sample(curves, 0, rng=np.random.default_rng(0))
+
+    assert sampled_temps.size == 0
+    assert sampled_presses.size == 0
+    assert sampled_curves == []

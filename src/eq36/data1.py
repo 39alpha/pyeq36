@@ -549,9 +549,12 @@ class TPCurve:
         Sample points uniformly at random from a collection of curves.
 
         Temperatures are drawn uniformly from the union of the curves'
-        domains (see `union_domains`). For each temperature, one of the curves
-        whose domain contains it is chosen uniformly at random and evaluated
-        to give the pressure.
+        domains (see `union_domains`). If every subdomain of every curve is a
+        single point, the union has zero length, so the temperatures are
+        instead drawn uniformly from those points, counted once per curve
+        (a point shared by several curves is proportionally more likely). For
+        each temperature, one of the curves whose domain contains it is
+        chosen uniformly at random and evaluated to give the pressure.
 
         @param curves      The curves from which to sample
         @param num_samples The number of points to sample
@@ -559,33 +562,37 @@ class TPCurve:
                            `np.random.default_rng()` is used if `None`
 
         @return The sampled temperatures, the corresponding pressures, and the
-                curve selected for each sample
-
-        @throws IndexError if the union of the domains is empty
-
-        @todo Single-point subdomains have zero length and so are never
-              sampled.
-        @todo `cls` is only used to call the static `union_domains`; this
-              could be a `staticmethod`.
+                curve selected for each sample; all empty if there is nothing
+                to sample, i.e. if `curves` is empty or every curve's domain
+                is empty
         """
         if rng is None:
             rng = np.random.default_rng()
 
-        domain = cls.union_domains(curves)
-        domain_size = sum(s[1] - s[0] for s in domain)
-        steps = [domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)]
+        if not curves or all(len(c.domain) == 0 for c in curves):
+            return np.empty(0), np.empty(0), []
 
-        temps: Array1D[np.float64] = rng.uniform(0, domain_size, num_samples) + domain[0][0]
         presses: list[np.float64] = []
         selected_curves: list[TPCurve] = []
-        for i in range(len(temps)):
-            temp = cast("np.float64", temps[i])
-            for j, subdomain in enumerate(domain):
-                if subdomain[1] >= temp:
-                    break
-                temp += steps[j]
-            temps[i] = temp
 
+        if all(all(d[0] == d[1] for d in c.domain) for c in curves):
+            discrete_temps = [d[0] for c in curves for d in c.domain]
+            temps: Array1D[np.float64] = rng.choice(discrete_temps, num_samples)
+        else:
+            domain = cls.union_domains(curves)
+            domain_size = sum(s[1] - s[0] for s in domain)
+            steps = [domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)]
+
+            temps: Array1D[np.float64] = rng.uniform(0, domain_size, num_samples) + domain[0][0]
+            for i in range(len(temps)):
+                temp = cast("np.float64", temps[i])
+                for j, subdomain in enumerate(domain):
+                    if subdomain[1] >= temp:
+                        break
+                    temp += steps[j]
+                temps[i] = temp
+
+        for temp in temps:
             curves_above = [curve for curve in curves if curve.temperature_in_domain(temp)]
             selected_index = rng.integers(0, len(curves_above))
             selected_curve = curves_above[selected_index]
@@ -595,7 +602,7 @@ class TPCurve:
 
             selected_curves.append(selected_curve)
 
-        return temps, np.asarray(presses), selected_curves
+        return np.asarray(temps), np.asarray(presses), selected_curves
 
 
 @dataclass
