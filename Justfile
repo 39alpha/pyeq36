@@ -2,8 +2,8 @@ default:
     @just --list
 
 [group('quality assurance')]
-[doc('Run pre-commit hooks and the full test suite')]
-check: pre-commit spellcheck-batch test
+[doc('Run pre-commit hooks, spell checking and the full test suite with coverage reporting')]
+check: pre-commit spellcheck-batch coverage
 
 [group('quality assurance')]
 [doc('Run all pre-commit hooks')]
