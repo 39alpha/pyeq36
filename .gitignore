@@ -12,3 +12,6 @@ docs/_site
 # Coverage reports
 .coverage
 htmlcov
+
+# Hypothesis example database
+.hypothesis

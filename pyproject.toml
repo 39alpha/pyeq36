@@ -88,6 +88,7 @@ path="hatch_build.py"
 [dependency-groups]
 dev = [
   "codespell",
+  "hypothesis",
   "ipython",
   "pre-commit",
   "pyrefly",
