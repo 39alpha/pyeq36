@@ -11,7 +11,7 @@ using their gfortran-mangled module symbol names.
       Consider loading it lazily.
 """
 
-from ctypes import CDLL, POINTER, byref, c_bool, c_char_p, c_double, c_int, c_long, create_string_buffer
+from ctypes import CDLL, POINTER, byref, c_bool, c_char_p, c_double, c_int, c_size_t, create_string_buffer
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,7 +25,7 @@ _libeq36 = CDLL(str(get_libpath("pyeq36")))
 
 ## The `openin` subroutine, which opens a data1 file and returns its logical unit
 _open_data1 = _libeq36.__pyeq36_data1_MOD_openin
-_open_data1.argtypes = [c_char_p, POINTER(c_int), POINTER(c_int), c_long]
+_open_data1.argtypes = [c_char_p, POINTER(c_int), POINTER(c_int), c_size_t]
 _open_data1.restype = None
 
 ## The `closein` subroutine, which closes a logical unit
