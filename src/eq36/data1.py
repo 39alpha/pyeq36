@@ -176,23 +176,23 @@ class SolidSolution:
         Compute the molar mass of the solid solution for a given composition.
 
         The result is the average of the end-member molar masses weighted by
-        `mole_fractions`. The fractions are normalized by their sum, so they
-        need not sum to one.
+        `mole_fractions`. Each fraction is divided by the sum of the fractions
+        before weighting, so they need not sum to one.
 
         @param mole_fractions The mole fraction of every end member, mapping
-                              end-member names to (non-negative) fractions
+                              end-member names to (finite, non-negative)
+                              fractions
 
         @return The weighted-average molar mass (g/mol)
 
         @throws ValueError if `mole_fractions` is empty
         @throws KeyError   if `mole_fractions` names an unknown end member
         @throws KeyError   if `mole_fractions` omits any end member
+        @throws ValueError if any mole fraction is not finite (NaN or infinite)
         @throws ValueError if any mole fraction is negative
+        @throws ValueError if the mole fractions sum to a non-finite value
+                (i.e. the sum overflows)
         @throws ValueError if the mole fractions do not sum to a positive value
-
-        @todo NaN mole fractions pass the negativity and sum checks
-              (`nan < 0.0` and `nan <= 0` are both false) and yield a NaN
-              result.
         """
         if not mole_fractions:
             msg = "no mole_fractions provided"
@@ -209,19 +209,28 @@ class SolidSolution:
             raise KeyError(msg)
 
         for end_member, fraction in mole_fractions.items():
+            if not np.isfinite(fraction):
+                msg = f"mole fraction for solid solution {self.name!r} end member {end_member!r} is not finite"
+                raise ValueError(msg)
+
             if fraction < 0.0:
                 msg = f"mole fraction for solid solution {self.name!r} end member {end_member!r} is negative"
                 raise ValueError(msg)
 
-        total = sum(mole_fractions.values())
+        with np.errstate(over="ignore"):
+            total = sum(mole_fractions.values())
+
+        if not np.isfinite(total):
+            msg = f"mole fractions for solid solution {self.name!r} must sum to a finite value"
+            raise ValueError(msg)
         if total <= 0:
             msg = f"mole fractions for solid solution {self.name!r} must sum to a positive value"
             raise ValueError(msg)
 
-        weighted = np.float64(0.0)
+        molar_mass = np.float64(0.0)
         for name, fraction in mole_fractions.items():
-            weighted += fraction * self.end_members[name]
-        return weighted / total
+            molar_mass += (fraction / total) * self.end_members[name]
+        return molar_mass
 
 
 @dataclass(init=False)
