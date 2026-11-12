@@ -233,6 +233,12 @@ class TPCurve:
     `[mid, max]`, which must agree at `mid`. The curve can be restricted to a
     `domain`, a list of closed temperature intervals, outside of which it
     cannot be evaluated.
+
+    @todo Support more than two polynomials. Data files with more than two
+          temperature ranges (e.g. `1kb`, `2kb` and `5kb` in
+          `eq36/test/data/eqpt`) have one polynomial per range, so
+          `Data1.from_file` keeps only the first two and the curve ends at the
+          second range's maximum (see `tests/test_data1_eqpt.py`).
     """
 
     ## The temperatures bounding the curve's pieces, keyed by `"min"`, `"mid"`
@@ -741,12 +747,6 @@ class Data1:
                 solution is invalid
         @throws TypeError    if any data read has an unexpected type
 
-        @todo Only the first two temperature ranges are used for `tp_curve`,
-              so for data files with more ranges (e.g. `1kb`, `2kb` and `5kb`
-              in `eq36/test/data/eqpt`) the curve ends at the second range's
-              maximum and omits the remaining polynomials (see
-              `tests/test_data1_eqpt.py`). `TPCurve` itself supports exactly
-              two polynomials.
         @todo Unlike `_make_species`, the solid-solution loop does not guard
               against non-positive indices; e.g. `nxrn1a == nxrn2a == 0`
               would read the last species.
