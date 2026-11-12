@@ -1,10 +1,14 @@
-"""Provide fixtures shared by the test suite."""
+"""Provide fixtures and Hypothesis settings profiles shared by the test suite."""
 
 from typing import cast
 
 import pytest
+from hypothesis import settings
 
 from .eqpt_reference import D1F, DATA_DIR, DATABASES, read_d0_grid, read_d1f
+
+settings.register_profile("dev", max_examples=10)
+settings.register_profile("thorough", max_examples=5_000, deadline=None)
 
 
 @pytest.fixture(autouse=True)
