@@ -65,8 +65,18 @@ def interval(lower: float, upper: float) -> FloatRange:
         (temperatures(), (np.array([1.0]),), "not enough values to unpack"),
         (temperatures(), (np.array([]), np.array([1.0])), "no coefficients"),
         (temperatures(), (np.array([1.0]), np.array([2.0])), "differ at the common temperature"),
+        (
+            {"min": np.float64(5.0), "mid": np.float64(0.0), "max": np.float64(10.0)},
+            (np.array([1.0]), np.array([1.0])),
+            "min <= mid <= max",
+        ),
+        (
+            {"min": np.float64(0.0), "mid": np.float64(10.0), "max": np.float64(5.0)},
+            (np.array([1.0]), np.array([1.0])),
+            "min <= mid <= max",
+        ),
     ],
-    ids=["missing-mid", "one-polynomial", "empty-polynomial", "discontinuous"],
+    ids=["missing-mid", "one-polynomial", "empty-polynomial", "discontinuous", "mid-below-min", "max-below-mid"],
 )
 def test_init_rejects_invalid_arguments(temperature: object, pressure: object, match: str) -> None:
     """

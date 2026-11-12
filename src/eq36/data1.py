@@ -270,17 +270,20 @@ class TPCurve:
 
         @throws ValueError if `temp` is missing any of `"min"`, `"mid"` or
                 `"max"`
+        @throws ValueError if the temperatures are not ordered, i.e. if
+                `min <= mid <= max` does not hold (e.g. if any is NaN)
         @throws ValueError if either polynomial has no coefficients
         @throws ValueError if `press` does not contain exactly two polynomials
         @throws TypeError  if evaluating either polynomial at `mid` does not
                 produce an `np.float64`
         @throws ValueError if the polynomials are not close (`np.isclose`) at
                 `mid`
-
-        @todo The ordering `min <= mid <= max` is not checked.
         """
         if not ("min" in temp and "mid" in temp and "max" in temp):
             msg = "temperature dictionary must have min, mid and max keys"
+            raise ValueError(msg)
+        if not (temp["min"] <= temp["mid"] <= temp["max"]):
+            msg = "min, mid and max temperatures are not properly ordered (min <= mid <= max)"
             raise ValueError(msg)
 
         if any(len(coeffs) == 0 for coeffs in press):
