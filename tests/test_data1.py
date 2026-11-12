@@ -139,7 +139,7 @@ def test_get_basis_species_returns_none_if_missing() -> None:
 
 def test_get_basis_species_rejects_multiple_matches() -> None:
     """Ensure that `get_basis_species` raises if more than one basis species contains the element."""
-    with pytest.raises(Exception, match="multiple basis species"):
+    with pytest.raises(ValueError, match="multiple basis species"):
         _ = basis_species(H_PLUS, H2_PLUS).get_basis_species("H")
 
 

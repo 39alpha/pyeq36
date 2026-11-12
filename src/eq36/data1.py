@@ -617,10 +617,8 @@ class Data1:
                 none; for `H` and `O`, `None` if no basis species consists
                 solely of `element`
 
-        @throws Exception if more than one basis species contains `element`
+        @throws ValueError if more than one basis species contains `element`
                 (for `H` and `O`, consists solely of `element`)
-
-        @todo Raises a bare `Exception`; consider a more specific type.
         """
         basis_species = [
             species
@@ -630,7 +628,7 @@ class Data1:
 
         if len(basis_species) > 1:
             msg = f"data1 file contains multiple basis species for element {element}"
-            raise Exception(msg)
+            raise ValueError(msg)
 
         return None if not basis_species else basis_species[0]
 
