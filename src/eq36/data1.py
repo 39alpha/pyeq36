@@ -358,9 +358,12 @@ class TPCurve:
         """
         Restrict the domain to the parts of the curve inside a T-P rectangle.
 
-        The intersections of the curve with the boundary of the rectangle are
-        found with `find_boundary_intersections`, and the domain is replaced
-        based on their number:
+        Any previous restriction is discarded: the domain is first reset to
+        `[min, max]` (see `reset_domain`), so the result depends only on the
+        curve and the rectangle. The intersections of the curve with the
+        boundary of the rectangle are then found with
+        `find_boundary_intersections`, and the domain is replaced based on
+        their number:
         - **none**: the domain is `[min, max]` if both endpoints of the curve
           are in the rectangle, and empty if neither is;
         - **one**: the domain is made up of the intervals between the
@@ -376,18 +379,15 @@ class TPCurve:
 
         @throws RuntimeError if there are no intersections but exactly one
                 endpoint is in the rectangle, which indicates a bug in
-                `find_boundary_intersections`
-        @throws ValueError   if a temperature evaluated is outside of the
-                current domain (see todo)
+                `find_boundary_intersections`; the domain is then left as
+                `[min, max]`
 
-        @todo The search and evaluations use the current domain, so calling
-              this on an already-restricted curve can raise `ValueError` (e.g.
-              when evaluating at `min` or `max`). Consider calling
-              `reset_domain` first or documenting that callers must.
         @todo With two or more intersections, a segment between an endpoint
               of the curve lying inside the rectangle and the first (or last)
               intersection is not included in the domain.
         """
+        _ = self.reset_domain()
+
         temp_min, temp_max = temperature_range
         press_min, press_max = pressure_range
 

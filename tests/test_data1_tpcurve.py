@@ -238,6 +238,41 @@ def test_set_domain_with_multiple_intersections(mocker: MockerFixture) -> None:
     assert curve.domain == [interval(1.0, 3.0), interval(3.0, 8.0)]
 
 
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ((interval(0.0, 3.0), interval(0.0, 2.0)), (interval(1.0, 2.0), interval(0.0, 2.0))),
+        ((interval(0.0, 3.0), interval(0.0, 2.0)), (interval(0.0, 10.0), interval(0.0, 2.0))),
+        ((interval(0.0, 10.0), interval(5.0, 6.0)), (interval(0.0, 10.0), interval(0.0, 2.0))),
+        ((interval(0.0, 3.0), interval(0.0, 2.0)), (interval(5.0, 8.0), interval(0.0, 2.0))),
+        ((interval(0.0, 3.0), interval(0.0, 2.0)), (interval(0.0, 10.0), interval(5.0, 6.0))),
+    ],
+    ids=["narrower", "wider", "after-empty", "disjoint", "disjoint-miss"],
+)
+def test_set_domain_ignores_previous_restriction(
+    first: tuple[FloatRange, FloatRange],
+    second: tuple[FloatRange, FloatRange],
+) -> None:
+    """
+    Ensure that `set_domain` on an already-restricted curve gives the same result as on an unrestricted one.
+
+    The curve, a constant pressure of `1` on `[0, 10]`, is restricted to a
+    first rectangle (which, for `after-empty`, it misses entirely) and then to
+    a second. For `disjoint`, the second rectangle lies outside the first
+    restriction but crosses the curve; for `disjoint-miss`, it misses the
+    curve entirely.
+
+    @param first  The temperature and pressure bounds of the first rectangle
+    @param second The temperature and pressure bounds of the second rectangle
+    """
+    restricted = constant_curve()
+    _ = restricted.set_domain(*first)
+    unrestricted = constant_curve()
+
+    assert restricted.set_domain(*second) == unrestricted.set_domain(*second)
+    assert restricted.domain == unrestricted.domain
+
+
 def test_find_boundary_intersections_includes_temperature_bounds() -> None:
     """Ensure that `find_boundary_intersections` includes the curve's crossings of the temperature bounds."""
     intersections = constant_curve().find_boundary_intersections(interval(0.0, 10.0), interval(1.0, 2.0))
