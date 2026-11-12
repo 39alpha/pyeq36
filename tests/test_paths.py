@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from eq36 import paths
-from eq36.paths import get_bin, get_execpath
+from eq36.paths import get_bin, get_execpath, remove_exe
 
 
 def test_get_bin() -> None:
@@ -171,3 +171,23 @@ def test_get_execpath_raises_if_not_in_eq36_bin(monkeypatch: pytest.MonkeyPatch,
     monkeypatch.setenv("EQ36_BIN", str(tmp_path))
     with pytest.raises(RuntimeError, match="command not found"):
         _ = get_execpath("eqpt")
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        (Path("eqpt.exe"), Path("eqpt")),
+        (Path("eqpt.EXE"), Path("eqpt")),
+        (Path("bin", "eqpt.exe"), Path("bin", "eqpt")),
+        (Path("eqpt"), Path("eqpt")),
+        (Path("eqpt.txt"), Path("eqpt.txt")),
+    ],
+)
+def test_remove_exe(path: Path, expected: Path) -> None:
+    """
+    Ensure that `remove_exe` removes an `.exe` suffix, ignoring case, and leaves other paths unchanged.
+
+    @param path     The path from which to remove the suffix
+    @param expected The expected path
+    """
+    assert remove_exe(path) == expected
