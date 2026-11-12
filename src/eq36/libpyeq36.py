@@ -399,9 +399,6 @@ def read_data1(filename: str | Path) -> Data:
 
         nbtafd = c_int(nbta_asv.value)
 
-        npta_asv = c_int(npta_asv.value)
-        nsta_asv = c_int(nsta_asv.value)
-
         nbta1_asv = c_int(nbta_asv.value + 1)
         ndrsa_asv = c_int(7 * nsta_asv.value)
         nessa_asv = c_int(5 * nsta_asv.value)
