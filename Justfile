@@ -21,6 +21,23 @@ coverage *args:
     uv run pytest --cov --cov-report=term --cov-report=html {{args}}
 
 [group('test')]
+[doc('Run the Hypothesis tests with a settings profile (dev, default or thorough); extra arguments are passed to pytest')]
+[positional-arguments]
+hypothesis profile="default" *args:
+    shift; uv run pytest -m hypothesis --hypothesis-profile="{{profile}}" "$@"
+
+[group('test')]
+[doc('Run the Hypothesis tests with a settings profile and report statistics; extra arguments are passed to pytest')]
+[positional-arguments]
+hypothesis-stats profile="default" *args:
+    shift; uv run pytest -m hypothesis --hypothesis-profile="{{profile}}" --hypothesis-show-statistics "$@"
+
+[group('test')]
+[doc('Delete the Hypothesis example database, so that previously failing examples are no longer replayed')]
+hypothesis-clean:
+    rm -rf .hypothesis
+
+[group('test')]
 [doc('Serve HTML coverage report')]
 coverage-serve port="5556":
     uv run --directory=htmlcov -- python -m http.server {{port}}

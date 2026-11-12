@@ -94,6 +94,24 @@ Run the test suite and report code coverage.
 just coverage
 ```
 
+Run only the Hypothesis (property-based) tests, optionally with a settings
+profile (`dev`, `default` or `thorough`; see `tests/conftest.py`).
+```sh
+just hypothesis [profile]
+```
+
+Run the Hypothesis tests and report statistics, e.g. how many examples were
+generated or discarded.
+```sh
+just hypothesis-stats [profile]
+```
+
+Delete the Hypothesis example database, so that previously failing examples
+are no longer replayed.
+```sh
+just hypothesis-clean
+```
+
 Spellcheck the source and documentation without prompting. The interactive
 `just spellcheck` target is intended for humans.
 ```sh
