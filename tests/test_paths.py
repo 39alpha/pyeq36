@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from eq36 import paths
-from eq36.paths import get_bin, get_execpath, remove_exe
+from eq36.paths import get_bin, get_execpath, get_lib, get_libpath, remove_exe
 
 
 def test_get_bin() -> None:
@@ -191,3 +191,119 @@ def test_remove_exe(path: Path, expected: Path) -> None:
     @param expected The expected path
     """
     assert remove_exe(path) == expected
+
+
+def test_get_lib() -> None:
+    """Ensure that `get_lib` returns the package `lib` directory."""
+    assert get_lib() == (Path(paths.__file__).parent / "lib").resolve()
+
+
+def test_get_lib_raises_if_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Ensure that `get_lib` raises a `RuntimeError` if the `lib` directory does not exist.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory without a `lib` subdirectory
+    """
+    monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
+    with pytest.raises(RuntimeError, match="is not a directory"):
+        _ = get_lib()
+
+
+## The suffix of shared libraries on the current platform
+LIB_SUFFIX = ".dll" if sys.platform.startswith("win") else ".dylib" if sys.platform == "darwin" else ".so"
+
+
+def test_get_libpath_finds_pyeq36() -> None:
+    """Ensure that `get_libpath` finds the bundled `pyeq36` library."""
+    assert get_libpath("pyeq36") == get_lib() / f"libpyeq36{LIB_SUFFIX}"
+
+
+@pytest.fixture
+def lib_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """
+    Make `get_lib` return an empty temporary `lib` directory.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory in which to create the `lib` directory
+
+    @return The resolved `lib` directory
+    """
+    monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
+    lib = tmp_path / "lib"
+    lib.mkdir()
+    return lib.resolve()
+
+
+@pytest.mark.parametrize(
+    ("platform", "lib", "expected"),
+    [
+        ("linux", "pyeq36", "libpyeq36.so"),
+        ("linux", "libpyeq36", "libpyeq36.so"),
+        ("linux", "pyeq36.so", "libpyeq36.so"),
+        ("linux", "libpyeq36.so", "libpyeq36.so"),
+        ("linux", Path("pyeq36"), "libpyeq36.so"),
+        ("darwin", "pyeq36", "libpyeq36.dylib"),
+        ("darwin", "libpyeq36.dylib", "libpyeq36.dylib"),
+        ("win32", "pyeq36", "libpyeq36.dll"),
+        ("win32", "pyeq36.dll", "libpyeq36.dll"),
+        ("freebsd14", "pyeq36", "libpyeq36"),
+    ],
+)
+def test_get_libpath_names_library_for_platform(
+    monkeypatch: pytest.MonkeyPatch,
+    lib_dir: Path,
+    platform: str,
+    lib: str | Path,
+    expected: str,
+) -> None:
+    """
+    Ensure that `get_libpath` adds the `lib` prefix and the platform's suffix only where they are missing.
+
+    On unrecognized platforms, no suffix is added.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param lib_dir     The temporary `lib` directory
+    @param platform    The value of `sys.platform`
+    @param lib         The name of the library to search for
+    @param expected    The expected filename of the library
+    """
+    (lib_dir / expected).touch()
+    monkeypatch.setattr(sys, "platform", platform)
+    assert get_libpath(lib) == lib_dir / expected
+
+
+def test_get_libpath_searches_subdirectories(monkeypatch: pytest.MonkeyPatch, lib_dir: Path) -> None:
+    """
+    Ensure that `get_libpath` searches the subdirectory of `lib` given by the parent of the library name.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param lib_dir     The temporary `lib` directory
+    """
+    (lib_dir / "sub").mkdir()
+    (lib_dir / "sub" / "libpyeq36.so").touch()
+    monkeypatch.setattr(sys, "platform", "linux")
+    assert get_libpath(Path("sub", "pyeq36")) == lib_dir / "sub" / "libpyeq36.so"
+
+
+def test_get_libpath_raises_if_not_found(lib_dir: Path) -> None:
+    """
+    Ensure that `get_libpath` raises a `RuntimeError` if the library is not in the `lib` directory.
+
+    @param lib_dir The (empty) temporary `lib` directory
+    """
+    _ = lib_dir
+    with pytest.raises(RuntimeError, match="library not found"):
+        _ = get_libpath("pyeq36")
+
+
+def test_get_libpath_raises_if_lib_is_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Ensure that `get_libpath` raises a `RuntimeError` if the `lib` directory does not exist.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory without a `lib` subdirectory
+    """
+    monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
+    with pytest.raises(RuntimeError, match="is not a directory"):
+        _ = get_libpath("pyeq36")

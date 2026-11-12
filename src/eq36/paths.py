@@ -55,6 +55,25 @@ def get_bin() -> Path:
     return bin_path
 
 
+def get_lib() -> Path:
+    """
+    Get the path to the directory containing the compiled libraries.
+
+    Unlike `get_bin`, this always uses the `lib` directory bundled with this
+    package; there is no environment variable override.
+
+    @return The resolved path to the `lib` directory
+
+    @throws RuntimeError if the directory does not exist
+    """
+    lib_path = (Path(__file__).parent / "lib").resolve()
+
+    if not lib_path.is_dir():
+        msg = f"{lib_path} is not a directory"
+        raise RuntimeError(msg)
+    return lib_path
+
+
 def get_execpath(cmd: str | Path) -> Path:
     """
     Get the path to an executable in the EQ3/6 `bin` directory.
@@ -78,7 +97,49 @@ def get_execpath(cmd: str | Path) -> Path:
     return execpath
 
 
+def get_libpath(lib: str | Path) -> Path:
+    """
+    Get the path to a library in the package's `lib` directory.
+
+    The directory is found with `get_lib`. `lib` is resolved relative to that
+    directory, so it may name a library in a subdirectory, e.g.
+    `"sub/pyeq36"`. The final component of `lib` is prefixed with `"lib"`
+    unless it already starts with `"lib"`, and suffixed with `".so"` (Linux),
+    `".dylib"` (macOS) or `".dll"` (Windows) unless it already ends with that
+    suffix, ignoring case. On any other platform no suffix is added.
+
+    @param lib The name of the library to search for, e.g. `"pyeq36"`
+
+    @return The resolved path to the library
+
+    @throws RuntimeError if the `lib` directory does not exist
+    @throws RuntimeError if the library is not found
+
+    @note If `lib` is absolute, or climbs out of the `lib` directory with
+          `".."`, the library is searched for at that location instead, so
+          this amounts to an existence check (with prefixing and suffixing).
+    """
+    lib = Path(lib)
+    prefix = "lib" if not lib.stem.startswith("lib") else ""
+
+    suffix = ""
+    if sys.platform == "linux" and not str(lib).lower().endswith(".so"):
+        suffix += ".so"
+    elif sys.platform == "darwin" and not str(lib).lower().endswith(".dylib"):
+        suffix += ".dylib"
+    elif sys.platform.startswith("win") and not str(lib).lower().endswith(".dll"):
+        suffix += ".dll"
+
+    libpath = (get_lib() / str(lib.parent) / (prefix + lib.name + suffix)).resolve()
+    if not libpath.is_file():
+        msg = f"{libpath!s} library not found"
+        raise RuntimeError(msg)
+    return libpath
+
+
 __all__ = [
     "get_bin",
     "get_execpath",
+    "get_lib",
+    "get_libpath",
 ]
