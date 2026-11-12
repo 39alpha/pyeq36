@@ -741,24 +741,15 @@ class Data1:
                 solution is invalid
         @throws TypeError    if any data read has an unexpected type
 
-        @todo The basis species are identified by indexing `cdrsa` (the
-              flattened reaction coefficients) by species index. This works
-              only because each strict basis species has a single, zero
-              coefficient; using `ndrsra` would be more robust.
-        @todo Element counts and charges are truncated with `int()`, so
-              non-integer values are silently changed.
         @todo Only the first two temperature ranges are used for `tp_curve`,
               so for data files with more ranges (e.g. `1kb`, `2kb` and `5kb`
               in `eq36/test/data/eqpt`) the curve ends at the second range's
               maximum and omits the remaining polynomials (see
               `tests/test_data1_eqpt.py`). `TPCurve` itself supports exactly
               two polynomials.
-        @todo `tp_curve` is annotated `TPCurve | None`, but is never `None`.
         @todo Unlike `_make_species`, the solid-solution loop does not guard
               against non-positive indices; e.g. `nxrn1a == nxrn2a == 0`
               would read the last species.
-        @todo Species with duplicate names within a category silently
-              overwrite each other.
         """
         filename = Path(filename)
 
