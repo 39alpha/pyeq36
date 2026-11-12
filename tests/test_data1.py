@@ -229,14 +229,56 @@ def test_from_file_reads_solid_solutions(parsed: Data1) -> None:
     assert parsed.solid_solutions["SOLID1"].end_members == {"EM1": np.float64(50.0), "EM2": np.float64(70.0)}
 
 
-def test_from_file_returns_no_species_for_zero_range(payload: Data) -> None:
+@pytest.mark.parametrize(
+    ("category", "start", "stop", "previous_stop"),
+    [("minerals", "nmrn1a", "nmrn2a", "narn2a"), ("gases", "ngrn1a", "ngrn2a", "nlrn2a")],
+)
+def test_from_file_returns_no_species_for_zero_range(
+    payload: Data,
+    category: str,
+    start: str,
+    stop: str,
+    previous_stop: str,
+) -> None:
     """
     Ensure that `from_file` constructs no species for a category whose range starts at zero.
 
+    For a data file with no species in the category, `EQLIB/indata` sets the
+    start of its range to zero and leaves the end at the end of the preceding
+    range.
+
+    @param payload       The payload returned by the mocked `read_data1`
+    @param category      The name of the attribute holding the category
+    @param start         The name of the payload field holding the start of the range
+    @param stop          The name of the payload field holding the end of the range
+    @param previous_stop The name of the payload field holding the end of the preceding range
+    """
+    setattr(payload, start, np.int32(0))
+    setattr(payload, stop, getattr(payload, previous_stop))
+    assert getattr(Data1.from_file("fake.d1"), category) == {}
+
+
+def test_from_file_returns_no_solid_solutions_for_zero_range(payload: Data) -> None:
+    """
+    Ensure that `from_file` constructs no solid solutions for a data file with neither gases nor solid solutions.
+
+    For such a file, `EQLIB/indata` sets the start of the gas range to zero and
+    both ends of the solid-solution range to zero. The payload is truncated
+    after `H2O(l)` and its ranges set accordingly.
+
     @param payload The payload returned by the mocked `read_data1`
     """
-    payload.narn1a = np.int32(0)
-    assert Data1.from_file("fake.d1").aqueous_species == {}
+    num_species = int(payload.nlrn2a)
+    payload.species_names = payload.species_names[:num_species]
+    payload.species_molar_weights = payload.species_molar_weights[:num_species]
+    payload.cdrsa = payload.cdrsa[:num_species]
+    payload.charges = payload.charges[:num_species]
+    payload.volumes = payload.volumes[:num_species]
+    payload.ngrn1a = np.int32(0)
+    payload.ngrn2a = payload.nlrn2a
+    payload.nxrn1a = np.int32(0)
+    payload.nxrn2a = np.int32(0)
+    assert Data1.from_file("fake.d1").solid_solutions == {}
 
 
 def test_from_file_preserves_nonzero_basis_species_volume(payload: Data) -> None:

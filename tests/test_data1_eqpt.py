@@ -13,12 +13,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pytest
 
+from eq36 import eqpt
 from eq36.data1 import Data1
 
-from .eqpt_reference import D1F, DATA_DIR, REL_10SF, TOL_3DP, TOL_4DP, TOL_5DP
+from .eqpt_reference import D1F, DATA_DIR, ENCODING, REL_10SF, TOL_3DP, TOL_4DP, TOL_5DP
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from pathlib import Path
 
     from eq36.data1 import Species
 
@@ -242,3 +244,29 @@ def test_tp_curve_reproduces_d0_grid(parsed: Data1, d1f: D1F, d0_grid: list[tupl
     points = [(t, p) for t, p in d0_grid if low <= t <= high]
     actual = [float(parsed.tp_curve(np.float64(t))) for t, _ in points]
     assert actual == pytest.approx([p for _, p in points], abs=TOL_4DP)
+
+
+def test_reads_no_solid_solutions_without_gases(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Ensure that a data file with neither gases nor solid solutions is read with neither.
+
+    The data0 file is `hmw.d0`, which has no solid solutions, with its gas
+    species removed. For such a file, `EQLIB/indata` sets the start of the gas
+    range and both ends of the solid-solution range to zero.
+
+    @param monkeypatch The pytest monkeypatch fixture, used to run `eqpt` in `tmp_path`
+    @param tmp_path    A temporary directory in which to write and process the data0 file
+    """
+    lines = (DATA_DIR / "hmw.d0").read_text(encoding=ENCODING).split("\n")
+    gases = lines.index("gases")
+    solid_solutions = lines.index("solid solutions")
+    _ = (tmp_path / "nogas.d0").write_text(
+        "\n".join(lines[: gases + 2] + lines[solid_solutions:]),
+        encoding=ENCODING,
+    )
+    monkeypatch.chdir(tmp_path)
+    _ = eqpt("nogas.d0")
+
+    parsed = Data1.from_file(tmp_path / "nogas.d1")
+    assert parsed.gases == {}
+    assert parsed.solid_solutions == {}

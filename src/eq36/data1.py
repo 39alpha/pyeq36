@@ -732,9 +732,10 @@ class Data1:
           for the null element (index 0), which EQ3/6 assigns to species
           composed of no elements (e.g. `e-`), are skipped, leaving such a
           species with an empty composition;
-        - the solid solutions are assembled from the end-member index range,
-          with the end-member name in the first 24 characters of the species
-          name and the solid-solution name in the remainder.
+        - the solid solutions are assembled from the end-member index range (an
+          empty dictionary if either index is non-positive), with the
+          end-member name in the first 24 characters of the species name and
+          the solid-solution name in the remainder.
 
         @param filename The path to the data1 file
 
@@ -746,10 +747,6 @@ class Data1:
         @throws ValueError   if any constructed `TPCurve`, species or solid
                 solution is invalid
         @throws TypeError    if any data read has an unexpected type
-
-        @todo Unlike `_make_species`, the solid-solution loop does not guard
-              against non-positive indices; e.g. `nxrn1a == nxrn2a == 0`
-              would read the last species.
         """
         filename = Path(filename)
 
@@ -874,7 +871,8 @@ class Data1:
             )
 
         solid_solutions: dict[str, SolidSolution] = {}
-        for i in range(int(data.nxrn1a) - 1, int(data.nxrn2a)):
+        start, stop = int(data.nxrn1a), int(data.nxrn2a)
+        for i in range(start - 1, stop) if start > 0 and stop > 0 else ():
             line = cast("object", data.species_names[i])
             if not isinstance(line, bytes):
                 raise TypeError(line)
