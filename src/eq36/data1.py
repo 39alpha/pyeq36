@@ -372,8 +372,7 @@ class TPCurve:
         @param temperature_range The temperature bounds of the rectangle
         @param pressure_range    The pressure bounds of the rectangle
 
-        @return `False` if there are no intersections and neither endpoint is
-                in the rectangle, `True` otherwise
+        @return Whether the resulting domain is non-empty
 
         @throws RuntimeError if there are no intersections but exactly one
                 endpoint is in the rectangle, which indicates a bug in
@@ -388,9 +387,6 @@ class TPCurve:
         @todo With two or more intersections, a segment between an endpoint
               of the curve lying inside the rectangle and the first (or last)
               intersection is not included in the domain.
-        @todo The return value is `True` whenever there are intersections,
-              even if the resulting domain is empty. Consider returning
-              `bool(self.domain)`.
         """
         temp_min, temp_max = temperature_range
         press_min, press_max = pressure_range
@@ -398,7 +394,6 @@ class TPCurve:
         intersections = self.find_boundary_intersections(temperature_range, pressure_range)
 
         domain: list[FloatRange] = []
-        not_empty = True
         if len(intersections) == 0:
             endpoints = 0
             for temp in [self.temperature["min"], self.temperature["max"]]:
@@ -406,13 +401,13 @@ class TPCurve:
                 if temp_min <= temp <= temp_max and press_min <= press <= press_max:
                     endpoints += 1
 
-            if endpoints == 0:
-                not_empty = False
-            elif endpoints == 1:
+            if endpoints == 1:
                 msg = "no boundary intersections found, but exactly one endpoint is inside the rectangle"
                 raise RuntimeError(msg)
-            else:
+
+            if endpoints > 1:
                 domain = [(self.temperature["min"], self.temperature["max"])]
+
         elif len(intersections) == 1:
             ((temp_intersect, _),) = intersections
             is_single_point = True
@@ -437,7 +432,7 @@ class TPCurve:
 
         self.domain = domain
 
-        return not_empty
+        return bool(self.domain)
 
     def find_boundary_intersections(
         self,
