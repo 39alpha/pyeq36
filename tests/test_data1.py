@@ -120,6 +120,18 @@ def test_get_basis_species_finds_species() -> None:
     assert basis_species(H_PLUS).get_basis_species("H") == H_PLUS
 
 
+def test_get_basis_species_prefers_species_of_only_that_element() -> None:
+    """Ensure that `get_basis_species` returns the basis species consisting only of an element shared by others."""
+    water = BasisSpecies(
+        name="H2O",
+        molar_mass=np.float64(18.0),
+        composition={"H": 2, "O": 1},
+        charge=0,
+        volume=None,
+    )
+    assert basis_species(water, H_PLUS).get_basis_species("H") == H_PLUS
+
+
 def test_get_basis_species_returns_none_if_missing() -> None:
     """Ensure that `get_basis_species` returns `None` if no basis species contains the element."""
     assert basis_species(H_PLUS).get_basis_species("Na") is None

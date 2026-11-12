@@ -127,6 +127,20 @@ def test_reads_basis_species(parsed: Data1, d1f: D1F) -> None:
     assert molar_masses(parsed.basis_species) == pytest.approx({s.name: s.molar_mass for s in basis}, abs=TOL_3DP)
 
 
+@pytest.mark.parametrize(("element", "expected"), [("H", "H+"), ("O", "O2(g)")])
+def test_get_basis_species_of_shared_element(parsed: Data1, element: str, expected: str) -> None:
+    """
+    Ensure that the basis species of an element shared by many basis species is the one consisting only of it.
+
+    @param parsed   The parsed data
+    @param element  The element, which occurs in many basis species
+    @param expected The name of the basis species consisting only of `element`
+    """
+    species = parsed.get_basis_species(element)
+    assert species is not None
+    assert species.name == expected
+
+
 def test_reads_solid_solutions(parsed: Data1, d1f: D1F) -> None:
     """
     Ensure that the solid solutions are read with their end members, whose molar masses are those of the minerals.

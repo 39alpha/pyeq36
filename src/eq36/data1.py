@@ -607,21 +607,29 @@ class Data1:
         """
         Get the basis species whose composition includes an element.
 
+        `H` and `O` appear in many basis species (e.g. `H2O`), so for these
+        elements only basis species consisting solely of the element (e.g. `H+`
+        and `O2(g)`) are considered.
+
         @param element The name of the element
 
         @return The basis species containing `element`, or `None` if there is
-                none
+                none; for `H` and `O`, `None` if no basis species consists
+                solely of `element`
 
         @throws Exception if more than one basis species contains `element`
+                (for `H` and `O`, consists solely of `element`)
 
-        @todo Elements such as `H` and `O` appear in many basis species, so
-              this raises for them. Consider whether that is intended.
         @todo Raises a bare `Exception`; consider a more specific type.
         """
-        basis_species = [species for species in self.basis_species.values() if element in species.composition]
+        basis_species = [
+            species
+            for species in self.basis_species.values()
+            if element in species.composition and (element not in {"H", "O"} or len(species.composition) == 1)
+        ]
 
         if len(basis_species) > 1:
-            msg = f"data1 file contains multiple basis species with element {element}"
+            msg = f"data1 file contains multiple basis species for element {element}"
             raise Exception(msg)
 
         return None if not basis_species else basis_species[0]
