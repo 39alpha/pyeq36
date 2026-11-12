@@ -78,18 +78,23 @@ def get_execpath(cmd: str | Path) -> Path:
     """
     Get the path to an executable in the EQ3/6 `bin` directory.
 
-    The directory is found with `get_bin`, so `EQ36_BIN` is respected. This
-    routine ensures that the `cmd` is appropriately suffixed with `'.exe'` on
-    Windows machines.
+    The directory is found with `get_bin`, so `EQ36_BIN` is respected. `cmd`
+    is resolved relative to that directory, so it may name an executable in a
+    subdirectory, e.g. `"tools/eq6"`. On Windows, `cmd` is suffixed with
+    `".exe"` unless it already ends with `".exe"` (ignoring case).
 
     @param cmd The name of the command to search for, e.g. `"eq6"`
 
     @return The resolved path to the executable
 
     @throws RuntimeError if the `bin` directory does not exist
-    @throws RuntimeError if the executable is not found in the `bin` directory
+    @throws RuntimeError if the executable is not found
+
+    @note If `cmd` is absolute, or climbs out of the `bin` directory with
+          `".."`, the executable is searched for at that location instead, so
+          this amounts to an existence check (with suffixing).
     """
-    suffix = ".exe" if sys.platform.startswith("win") and not str(cmd).endswith(".exe") else ""
+    suffix = ".exe" if sys.platform.startswith("win") and not str(cmd).lower().endswith(".exe") else ""
     execpath = (get_bin() / (str(cmd) + suffix)).resolve()
     if not execpath.is_file():
         msg = f"{execpath!s} command not found"

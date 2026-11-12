@@ -161,6 +161,37 @@ def test_get_execpath_uses_eq36_bin(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert get_execpath("eqpt") == executable.resolve()
 
 
+def test_get_execpath_searches_subdirectories(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Ensure that `get_execpath` searches the subdirectory of `bin` given by the parent of the command.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory to use as the `bin` directory
+    """
+    (tmp_path / "tools").mkdir()
+    executable = tmp_path / "tools" / f"eqpt{EXE_SUFFIX}"
+    executable.touch()
+    monkeypatch.setenv("EQ36_BIN", str(tmp_path))
+    assert get_execpath(Path("tools", "eqpt")) == executable.resolve()
+
+
+def test_get_execpath_ignores_case_of_exe_suffix(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Ensure that, on Windows, `get_execpath` does not add `.exe` to a command already suffixed in another case.
+
+    The platform is faked, so the command must be found as given rather than
+    with a second suffix, i.e. `eqpt.EXE.exe`.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory to use as the `bin` directory
+    """
+    executable = tmp_path / "eqpt.EXE"
+    executable.touch()
+    monkeypatch.setenv("EQ36_BIN", str(tmp_path))
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert get_execpath("eqpt.EXE") == executable.resolve()
+
+
 def test_get_execpath_raises_if_not_in_eq36_bin(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     Ensure that `get_execpath` raises a `RuntimeError` if the executable is not in the directory given by `EQ36_BIN`.
