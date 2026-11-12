@@ -654,24 +654,35 @@ class Data1:
 
         @throws ValueError if `name` is a solid solution and `mole_fractions`
                 is `None`
+        @throws ValueError if `name` is not a solid solution and
+                `mole_fractions` is not `None`
         @throws KeyError   if `name` is not found
         @throws ValueError if `SolidSolution.molar_mass` raises `ValueError`
         @throws KeyError   if `SolidSolution.molar_mass` raises `KeyError`
 
-        @todo `mole_fractions` is silently ignored when `name` is not a solid
-              solution; consider raising instead.
+        @todo Stop checking end members. They should always be a pure mineral
+              and would be found earlier in the search.
         """
         if name in self.solid_solutions:
             if mole_fractions is None:
                 msg = "mole_fractions is required to get the molar_mass of a solid solution"
                 raise ValueError(msg)
             return self.solid_solutions[name].molar_mass(mole_fractions)
+
+        msg = f"mole_fractions is only allowed for solid solutions; {name!r} is not one"
+
         for category in (self.aqueous_species, self.minerals, self.liquids, self.gases):
             if name in category:
+                if mole_fractions is not None:
+                    raise ValueError(msg)
                 return category[name].molar_mass
+
         for solid_solution in self.solid_solutions.values():
             if name in solid_solution.end_members:
+                if mole_fractions is not None:
+                    raise ValueError(msg)
                 return solid_solution.end_members[name]
+
         msg = f"no species named {name!r} in {self.filename}"
         raise KeyError(msg)
 

@@ -372,6 +372,18 @@ def test_molar_mass_of_solid_solution_requires_mole_fractions(parsed: Data1) -> 
         _ = parsed.molar_mass("SOLID1")
 
 
+@pytest.mark.parametrize("name", ["H+", "Calcite", "EM1"])
+def test_molar_mass_rejects_mole_fractions_for_non_solid_solution(parsed: Data1, name: str) -> None:
+    """
+    Ensure that `molar_mass` raises a `ValueError` if mole fractions are given for anything but a solid solution.
+
+    @param parsed The parsed data
+    @param name   The name of a species or end member that is not a solid solution
+    """
+    with pytest.raises(ValueError, match="only allowed for solid solutions"):
+        _ = parsed.molar_mass(name, {"EM1": np.float64(0.25), "EM2": np.float64(0.75)})
+
+
 def test_molar_mass_rejects_unknown_species(parsed: Data1) -> None:
     """
     Ensure that `molar_mass` raises a `KeyError` for an unknown species.
