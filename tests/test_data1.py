@@ -21,15 +21,39 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 
+## The species names, other than `H+`, of the payload
+OTHER_NAMES = [
+    b"Calcite                 ",
+    b"EM1                     ",
+    b"EM2                     ",
+    b"H2O(l)                  ",
+    b"CO2(g)                  ",
+    b"EM1                     SOLID1",
+    b"EM2                     SOLID1",
+]
+
+## The molar weights, other than that of `H+`, of the payload
+OTHER_WEIGHTS = [
+    np.float64(100.09),
+    np.float64(50.0),
+    np.float64(70.0),
+    np.float64(18.0),
+    np.float64(44.01),
+    np.float64(50.0),
+    np.float64(70.0),
+]
+
+
 @pytest.fixture
 def payload(mocker: MockerFixture) -> Data:
     """
     Construct a small `Data` payload and make `eq36.data1.read_data1` return it.
 
-    The payload contains one species of each kind: the basis (and aqueous)
-    species `H+`, the mineral `Calcite`, the liquid `H2O(l)`, the gas `CO2(g)`
-    and the end members `EM1` and `EM2` of the solid solution `SOLID1`. Tests
-    may modify the payload before calling `Data1.from_file`.
+    The payload contains the basis (and aqueous) species `H+`, the minerals
+    `Calcite`, `EM1` and `EM2`, the liquid `H2O(l)`, the gas `CO2(g)` and the
+    solid solution `SOLID1`, whose end members are `EM1` and `EM2`. As in a
+    real data1 file, the end members are also pure minerals. Tests may modify
+    the payload before calling `Data1.from_file`.
 
     @param mocker The pytest-mock mocker fixture
 
@@ -44,31 +68,27 @@ def payload(mocker: MockerFixture) -> Data:
         species_names=np.array(
             [
                 b"H+                      ",
-                b"Calcite                 ",
-                b"H2O(l)                  ",
-                b"CO2(g)                  ",
-                b"EM1                     SOLID1",
-                b"EM2                     SOLID1",
+                *OTHER_NAMES,
             ],
             dtype="|S48",
         ),
-        species_molar_weights=np.array([1.0, 100.09, 18.0, 44.01, 50.0, 70.0]),
-        cdrsa=np.array([0.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
-        charges=np.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-        volumes=np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+        species_molar_weights=np.array([1.0, *OTHER_WEIGHTS]),
+        cdrsa=np.array([0.0, *[1.0] * len(OTHER_NAMES)]),
+        charges=np.array([1.0, *[0.0] * len(OTHER_NAMES)]),
+        volumes=np.zeros(1 + len(OTHER_NAMES)),
         nessra=np.array([[1, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0]], dtype=np.int32),
         nessa=np.array([1, 2], dtype=np.int32),
         cessa=np.array([2.0, 1.0]),
         narn1a=np.int32(1),
         narn2a=np.int32(1),
         nmrn1a=np.int32(2),
-        nmrn2a=np.int32(2),
-        nlrn1a=np.int32(3),
-        nlrn2a=np.int32(3),
-        ngrn1a=np.int32(4),
-        ngrn2a=np.int32(4),
-        nxrn1a=np.int32(5),
-        nxrn2a=np.int32(6),
+        nmrn2a=np.int32(4),
+        nlrn1a=np.int32(5),
+        nlrn2a=np.int32(5),
+        ngrn1a=np.int32(6),
+        ngrn2a=np.int32(6),
+        nxrn1a=np.int32(7),
+        nxrn2a=np.int32(8),
     )
     _ = mocker.patch.object(data1, "read_data1", return_value=data)
     return data
@@ -175,20 +195,28 @@ def test_from_file_reads_basis_species(parsed: Data1) -> None:
     ("category", "expected"),
     [
         ("aqueous_species", AqueousSpecies(name="H+", molar_mass=np.float64(1.0))),
-        ("minerals", Mineral(name="Calcite", molar_mass=np.float64(100.09))),
+        (
+            "minerals",
+            [
+                Mineral(name="Calcite", molar_mass=np.float64(100.09)),
+                Mineral(name="EM1", molar_mass=np.float64(50.0)),
+                Mineral(name="EM2", molar_mass=np.float64(70.0)),
+            ],
+        ),
         ("liquids", Liquid(name="H2O(l)", molar_mass=np.float64(18.0))),
         ("gases", Gas(name="CO2(g)", molar_mass=np.float64(44.01))),
     ],
 )
-def test_from_file_reads_species(parsed: Data1, category: str, expected: Species) -> None:
+def test_from_file_reads_species(parsed: Data1, category: str, expected: Species | list[Species]) -> None:
     """
     Ensure that `from_file` constructs the species of each category.
 
     @param parsed   The parsed data
     @param category The name of the attribute holding the category
-    @param expected The single species expected in the category
+    @param expected The species expected in the category, or the single such species
     """
-    assert getattr(parsed, category) == {expected.name: expected}
+    species = expected if isinstance(expected, list) else [expected]
+    assert getattr(parsed, category) == {s.name: s for s in species}
 
 
 def test_from_file_reads_solid_solutions(parsed: Data1) -> None:
@@ -218,7 +246,7 @@ def test_from_file_preserves_nonzero_basis_species_volume(payload: Data) -> None
     @param payload The payload returned by the mocked `read_data1`
     """
     volume = np.float64(1.5)
-    payload.volumes = np.array([volume, 0.0, 0.0, 0.0, 0.0, 0.0])
+    payload.volumes = np.array([volume, *[0.0] * len(OTHER_NAMES)])
     assert Data1.from_file("fake.d1").basis_species["H+"].volume == volume
 
 
@@ -257,7 +285,7 @@ def test_from_file_rejects_duplicate_end_members(payload: Data) -> None:
 
     @param payload The payload returned by the mocked `read_data1`
     """
-    payload.species_names[5] = b"EM1                     SOLID1"
+    payload.species_names[7] = b"EM1                     SOLID1"
     with pytest.raises(RuntimeError, match="occurs multiple times"):
         _ = Data1.from_file("fake.d1")
 
@@ -274,29 +302,16 @@ def disable_species_ranges(payload: Data) -> None:
     payload.ngrn1a = np.int32(0)
 
 
-## The species names, other than `H+`, of the payload
-OTHER_NAMES = [
-    b"Calcite                 ",
-    b"H2O(l)                  ",
-    b"CO2(g)                  ",
-    b"EM1                     SOLID1",
-    b"EM2                     SOLID1",
-]
-
-## The molar weights, other than that of `H+`, of the payload
-OTHER_WEIGHTS = [np.float64(100.09), np.float64(18.0), np.float64(44.01), np.float64(50.0), np.float64(70.0)]
-
-
 @pytest.mark.parametrize(
     ("field", "value", "basis_only"),
     [
         ("element_names", ["H", b"O"], False),
-        ("species_names", [123, OTHER_NAMES[3], OTHER_NAMES[4]], False),
+        ("species_names", [123, *OTHER_NAMES], False),
         ("species_names", [456, *OTHER_NAMES], True),
-        ("species_names", [b"H+                      ", *OTHER_NAMES[:4], 456], False),
+        ("species_names", [b"H+                      ", *OTHER_NAMES[:-1], 456], False),
         ("species_molar_weights", [42, *OTHER_WEIGHTS], False),
         ("species_molar_weights", [42, *OTHER_WEIGHTS], True),
-        ("species_molar_weights", [np.float64(1.0), *OTHER_WEIGHTS[:3], 42, OTHER_WEIGHTS[4]], False),
+        ("species_molar_weights", [np.float64(1.0), *OTHER_WEIGHTS[:-2], 42, OTHER_WEIGHTS[-1]], False),
     ],
     ids=[
         "element-name",
@@ -343,7 +358,7 @@ def test_from_file_rejects_non_float64_composition_counts(payload: Data) -> None
 )
 def test_molar_mass(parsed: Data1, name: str, expected: float) -> None:
     """
-    Ensure that `molar_mass` finds species of every category, and solid-solution end members.
+    Ensure that `molar_mass` finds species of every category, including solid-solution end members.
 
     @param parsed   The parsed data
     @param name     The name of the species

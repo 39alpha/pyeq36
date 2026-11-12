@@ -638,17 +638,16 @@ class Data1:
         mole_fractions: dict[str, np.float64] | None = None,
     ) -> np.float64:
         """
-        Get the molar mass of a species, phase or end member in the data file.
+        Get the molar mass of a species or phase in the data file.
 
         `name` is looked up, in order, among the solid solutions, aqueous
-        species, pure minerals, pure liquids, gases and finally solid-solution
-        end members; the first match is used. For a solid solution, the molar
-        mass is computed with `SolidSolution.molar_mass`.
+        species, pure minerals, pure liquids, and finally gases; the first match
+        is used. For a solid solution, the molar mass is computed with
+        `SolidSolution.molar_mass`.
 
-        @param name           The name of the species, solid solution or end
-                              member
+        @param name           The name of the species or phase
         @param mole_fractions The end-member mole fractions; required if
-                              `name` is a solid solution, and ignored otherwise
+                              `name` is a solid solution
 
         @return The molar mass (g/mol)
 
@@ -659,9 +658,6 @@ class Data1:
         @throws KeyError   if `name` is not found
         @throws ValueError if `SolidSolution.molar_mass` raises `ValueError`
         @throws KeyError   if `SolidSolution.molar_mass` raises `KeyError`
-
-        @todo Stop checking end members. They should always be a pure mineral
-              and would be found earlier in the search.
         """
         if name in self.solid_solutions:
             if mole_fractions is None:
@@ -669,19 +665,12 @@ class Data1:
                 raise ValueError(msg)
             return self.solid_solutions[name].molar_mass(mole_fractions)
 
-        msg = f"mole_fractions is only allowed for solid solutions; {name!r} is not one"
-
         for category in (self.aqueous_species, self.minerals, self.liquids, self.gases):
             if name in category:
                 if mole_fractions is not None:
+                    msg = f"mole_fractions is only allowed for solid solutions; {name!r} is not one"
                     raise ValueError(msg)
                 return category[name].molar_mass
-
-        for solid_solution in self.solid_solutions.values():
-            if name in solid_solution.end_members:
-                if mole_fractions is not None:
-                    raise ValueError(msg)
-                return solid_solution.end_members[name]
 
         msg = f"no species named {name!r} in {self.filename}"
         raise KeyError(msg)
