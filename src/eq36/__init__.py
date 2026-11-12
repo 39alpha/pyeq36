@@ -51,7 +51,15 @@ class RunCode(IntEnum):
 
 
 class Eq36Error(Exception):
-    """An error specific to running EQ3/6 binaries."""
+    """
+    An error specific to running EQ3/6 binaries.
+
+    @todo Consider introducing an exception hierarchy, rooted at `Eq36Error`,
+          in lieu of distinguishing errors by `RunCode`, e.g. subclasses for
+          errors in `eqpt`, `eq3nr` and `eq6`, and for timeouts. The hierarchy
+          could also include errors not specific to running the binaries, such
+          as a `Data1Error` for invalid data1 files (see `ERRORS.md`).
+    """
 
     ## The code identifying the error, either a `RunCode` or a process exit code
     code: RunCode | int
