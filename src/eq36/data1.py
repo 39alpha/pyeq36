@@ -88,15 +88,14 @@ class BasisSpecies(Species):
 
         @param name        The (non-empty) name of the species
         @param molar_mass  The (non-negative) molar mass (g/mol) of the species
-        @param composition The (non-empty) elemental composition, mapping
-                           element names to (non-negative) counts
+        @param composition The elemental composition, mapping element names to
+                           (non-negative) counts
         @param charge      The electrical charge of the species
         @param volume      The (non-negative) molar volume of the species, or
                            `None` if unknown
 
         @throws ValueError if `name` is empty
         @throws ValueError if `molar_mass` is negative
-        @throws ValueError if `composition` is empty
         @throws ValueError if any count in `composition` is negative
         @throws ValueError if `volume` is negative
         """
@@ -104,10 +103,6 @@ class BasisSpecies(Species):
         self.composition = composition
         self.charge = charge
         self.volume = volume
-
-        if not self.composition:
-            msg = "cannot construct BasisSpecies with an empty composition"
-            raise ValueError(msg)
 
         for count in self.composition.values():
             if count < 0:
@@ -721,7 +716,10 @@ class Data1:
           characters of each name;
         - the basis species are the leading species whose corresponding entry
           of `cdrsa` is zero, with their compositions taken from `nessra`,
-          `nessa` and `cessa`, and a zero volume treated as unknown;
+          `nessa` and `cessa`, and a zero volume treated as unknown; entries
+          for the null element (index 0), which EQ3/6 assigns to species
+          composed of no elements (e.g. `e-`), are skipped, leaving such a
+          species with an empty composition;
         - the solid solutions are assembled from the end-member index range,
           with the end-member name in the first 24 characters of the species
           name and the solid-solution name in the remainder.
@@ -853,10 +851,15 @@ class Data1:
             a = int(cast("np.int32", data.nessra[0, i]))
             b = int(cast("np.int32", data.nessra[1, i]))
             indices = cast("Array1D[np.int32]", data.nessa[a - 1 : b])
-            composition: dict[str, int] = {}
-            selected_elements = [element_names[int(idx) - 1] for idx in indices]
             counts = cast("list[object]", list(data.cessa[a - 1 : b]))
-            for element, count in zip(selected_elements, counts, strict=False):
+            selected = [
+                (element_names[jdx - 1], count)
+                for idx, count in zip(indices, counts, strict=True)
+                if (jdx := int(idx)) != 0
+            ]
+
+            composition: dict[str, int] = {}
+            for element, count in selected:
                 if not isinstance(count, np.float64):
                     raise TypeError(count)
                 composition[element] = int(count)

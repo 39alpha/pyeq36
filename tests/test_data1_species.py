@@ -28,11 +28,10 @@ def test_species_rejects_invalid_arguments(name: str, molar_mass: float, match: 
 @pytest.mark.parametrize(
     ("composition", "volume", "match"),
     [
-        ({}, None, "empty composition"),
         ({"H": -1}, None, "negative count"),
         ({"H": 1}, np.float64(-1.0), "negative volume"),
     ],
-    ids=["empty-composition", "negative-count", "negative-volume"],
+    ids=["negative-count", "negative-volume"],
 )
 def test_basis_species_rejects_invalid_arguments(
     composition: dict[str, int],

@@ -210,6 +210,35 @@ def test_from_file_preserves_nonzero_basis_species_volume(payload: Data) -> None
     assert Data1.from_file("fake.d1").basis_species["H+"].volume == volume
 
 
+@pytest.mark.parametrize(
+    ("nessa", "cessa", "expected"),
+    [
+        ([0], [0.0], {}),
+        ([0, 1], [0.0, 2.0], {"H": 2}),
+        ([1, 0], [2.0, 0.0], {"H": 2}),
+    ],
+    ids=["null-only", "null-first", "null-last"],
+)
+def test_from_file_skips_null_element(
+    payload: Data,
+    nessa: list[int],
+    cessa: list[float],
+    expected: dict[str, int],
+) -> None:
+    """
+    Ensure that `from_file` skips the null element (index 0) in a basis species' composition.
+
+    @param payload  The payload returned by the mocked `read_data1`
+    @param nessa    The element indices of the composition of `H+`
+    @param cessa    The element counts of the composition of `H+`
+    @param expected The expected composition of `H+`
+    """
+    payload.nessra = np.array([[1, 0, 0, 0, 0, 0], [len(nessa), 0, 0, 0, 0, 0]], dtype=np.int32)
+    payload.nessa = np.array(nessa, dtype=np.int32)
+    payload.cessa = np.array(cessa)
+    assert Data1.from_file("fake.d1").basis_species["H+"].composition == expected
+
+
 def test_from_file_rejects_duplicate_end_members(payload: Data) -> None:
     """
     Ensure that `from_file` raises a `RuntimeError` if a solid-solution end member occurs more than once.
