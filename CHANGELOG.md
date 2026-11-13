@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`just spellcheck`** also checks the Markdown documents with `aspell`.
 - **Ruff and Pyrefly** target Python 3.10, the minimum supported version.
 
+### Removed
+
+- **Windows on ARM** support, until a native ARM64 Fortran compiler is
+  available. The `win_arm64` wheels contained x86-64 binaries.
+
 ## [v0.1.0]
 
 ### Added
