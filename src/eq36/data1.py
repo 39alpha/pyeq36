@@ -292,6 +292,8 @@ class TPCurve:
     `domain`, a list of closed temperature intervals, outside of which it
     cannot be evaluated.
 
+    @todo Rename this class to `PiecewiseCurve`.
+    @todo Break this class out into a separate submodule.
     @todo Support more than two polynomials. Data files with more than two
           temperature ranges (e.g. `1kb`, `2kb` and `5kb` in
           `eq36/test/data/eqpt`) have one polynomial per range, so
