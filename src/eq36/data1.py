@@ -9,6 +9,7 @@ types from which a `Data1` is built.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias, TypeVar, cast
 
@@ -23,7 +24,7 @@ FloatRange: TypeAlias = tuple[np.float64, np.float64]
 CartesianCoord: TypeAlias = tuple[np.float64, np.float64]
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     from eq36.typing import Array1D
 
@@ -233,6 +234,54 @@ class SolidSolution:
         return molar_mass
 
 
+def _snap(x: np.float64, bounds: FloatRange, atol: float = 1e-8, rtol: float = 1e-6) -> np.float64:
+    """
+    Snap a value lying just outside an interval onto the nearer bound.
+
+    A value below the lower bound (above the upper bound) is replaced by that
+    bound if the two are close (`np.isclose` with `atol` and `rtol`), e.g.
+    when rounding has pushed a computed value just outside the interval.
+    Values inside the interval, or far outside it, are returned unchanged.
+
+    @private
+
+    @param x      The value
+    @param bounds The lower and upper bounds of the interval
+    @param atol   The absolute tolerance passed to `np.isclose`
+    @param rtol   The relative tolerance passed to `np.isclose`
+
+    @return The bound onto which `x` is snapped, or `x` itself
+    """
+    if x < bounds[0] and np.isclose(x, bounds[0], atol=atol, rtol=rtol):
+        return bounds[0]
+    if x > bounds[1] and np.isclose(x, bounds[1], atol=atol, rtol=rtol):
+        return bounds[1]
+    return x
+
+
+def _merge_intervals(intervals: Iterable[FloatRange]) -> list[FloatRange]:
+    """
+    Merge overlapping and touching closed intervals.
+
+    Single points, `(t, t)`, are treated like any other interval: they are
+    merged into an interval that contains or touches them, and kept otherwise.
+
+    @private
+
+    @param intervals The closed intervals, in any order
+
+    @return The disjoint, non-touching intervals covering the same values,
+            sorted
+    """
+    merged: list[FloatRange] = []
+    for start, stop in sorted(intervals):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], stop))
+        else:
+            merged.append((start, stop))
+    return merged
+
+
 @dataclass(init=False)
 class TPCurve:
     """
@@ -276,8 +325,15 @@ class TPCurve:
         @throws ValueError if `press` does not contain exactly two polynomials
         @throws TypeError  if evaluating either polynomial at `mid` does not
                 produce an `np.float64`
-        @throws ValueError if the polynomials are not close (`np.isclose`) at
-                `mid`
+        @throws ValueError if the polynomials are not close (`np.isclose`, with
+                its default tolerances) at `mid`
+
+        @todo The continuity check uses `np.isclose`'s default tolerances
+              (`rtol=1e-5`, `atol=1e-8`), which are looser than those of
+              `find_boundary_intersections`. A root at `mid` found by the right
+              polynomial is evaluated with the left one, so on a curve whose
+              pieces differ at `mid` by more than the latter, that crossing
+              can be rejected.
         """
         if not ("min" in temp and "mid" in temp and "max" in temp):
             msg = "temperature dictionary must have min, mid and max keys"
@@ -328,6 +384,11 @@ class TPCurve:
         @param temp The temperature to check
 
         @return Whether `temp` is in any interval of the domain
+
+        @todo The comparisons are exact, so a temperature that rounding has put
+              just outside the domain is rejected, e.g. by `__call__`, or by
+              `sample` when choosing the curves that contain a sampled
+              temperature (which raises if there are none).
         """
         return any(subdomain[0] <= temp <= subdomain[1] for subdomain in self.domain)
 
@@ -360,84 +421,63 @@ class TPCurve:
 
         Any previous restriction is discarded: the domain is first reset to
         `[min, max]` (see `reset_domain`), so the result depends only on the
-        curve and the rectangle. The intersections of the curve with the
-        boundary of the rectangle are then found with
-        `find_boundary_intersections`, and the domain is replaced based on
-        their number:
-        - **none**: the domain is `[min, max]` if both endpoints of the curve
-          are in the rectangle, and empty if neither is;
-        - **one**: the domain is made up of the intervals between the
-          intersection and each of `min`, `mid` and `max` that is in the
-          rectangle, or the single point of intersection if none are;
-        - **two or more**: the domain is made up of the intervals between
-          consecutive intersections whose midpoint is in the rectangle.
+        curve and the rectangle. The temperatures at which the curve meets the
+        boundary of the rectangle (found with `find_boundary_intersections`)
+        and the curve's endpoints divide `[min, max]` into segments. Then:
+        - each intersection, which lies on the boundary, is kept as a single
+          point;
+        - each endpoint is kept as a single point if it is in the rectangle;
+        - each segment is kept if its midpoint is in the rectangle.
+
+        These are merged (see `_merge_intervals`), so the domain is a sorted
+        list of disjoint intervals, with single points only where the curve
+        meets the rectangle at an isolated point.
 
         @param temperature_range The temperature bounds of the rectangle
         @param pressure_range    The pressure bounds of the rectangle
 
         @return Whether the resulting domain is non-empty
 
-        @throws RuntimeError if there are no intersections but exactly one
-                endpoint is in the rectangle, which indicates a bug in
-                `find_boundary_intersections`; the domain is then left as
-                `[min, max]`
+        @note This assumes that `find_boundary_intersections` finds every
+              intersection, so that each segment lies wholly inside or wholly
+              outside the rectangle. If one is missed, the midpoint of the
+              segment containing it decides whether the whole segment is kept.
+
+        @todo `find_boundary_intersections` is called with its default
+              tolerances, which cannot be overridden here.
+        @todo Whether an endpoint is in the rectangle is decided by exact
+              comparisons, so an endpoint that touches the rectangle only to
+              within rounding, and is the curve's only contact with it, is
+              dropped.
         """
         _ = self.reset_domain()
 
         temp_min, temp_max = temperature_range
         press_min, press_max = pressure_range
 
+        def inside(temp: np.float64) -> np.bool:
+            """
+            Determine whether the curve at a temperature lies in the rectangle.
+
+            @private
+
+            @param temp The temperature, in `[min, max]`
+
+            @return Whether `temp` and the pressure there are within the
+                    bounds of the rectangle
+            """
+            return temp_min <= temp <= temp_max and press_min <= self(temp) <= press_max
+
         intersections = self.find_boundary_intersections(temperature_range, pressure_range)
+        crossings = [temp for temp, _ in intersections]
+        endpoints = [self.temperature["min"], self.temperature["max"]]
+        breaks = sorted(set(crossings + endpoints))
 
-        domain: list[FloatRange] = []
-        if len(intersections) == 0:
-            endpoints = 0
-            for temp in [self.temperature["min"], self.temperature["max"]]:
-                press = self(temp)
-                if temp_min <= temp <= temp_max and press_min <= press <= press_max:
-                    endpoints += 1
+        segments = [(temp, temp) for temp in crossings]
+        segments += [(temp, temp) for temp in endpoints if inside(temp)]
+        segments += [(a, b) for a, b in pairwise(breaks) if inside((a + b) / 2)]
 
-            if endpoints == 1:
-                msg = "no boundary intersections found, but exactly one endpoint is inside the rectangle"
-                raise RuntimeError(msg)
-
-            if endpoints > 1:
-                domain = [(self.temperature["min"], self.temperature["max"])]
-        elif len(intersections) == 1:
-            ((temp_intersect, _),) = intersections
-            is_single_point = True
-            for temp in [self.temperature["min"], self.temperature["mid"], self.temperature["max"]]:
-                if temp == temp_intersect or not (temp_min <= temp <= temp_max):
-                    continue
-
-                press = self(temp)
-                if press_min <= press <= press_max:
-                    domain.append((min(temp, temp_intersect), max(temp, temp_intersect)))
-                    is_single_point = False
-
-            if is_single_point:
-                domain.append((temp_intersect, temp_intersect))
-        else:
-            (temp_intersect, _) = intersections[0]
-            if temp_min <= self.temperature["min"] <= temp_intersect and temp_min < temp_intersect:
-                press = self(self.temperature["min"])
-                if press_min <= press <= press_max:
-                    domain.append((self.temperature["min"], temp_intersect))
-
-            for i in range(len(intersections) - 1):
-                temp_1, _ = intersections[i]
-                temp_2, _ = intersections[i + 1]
-                press = self((temp_1 + temp_2) / 2)
-                if press_min <= press <= press_max:
-                    domain.append((temp_1, temp_2))
-
-            (temp_intersect, _) = intersections[-1]
-            if temp_intersect <= self.temperature["max"] <= temp_max and temp_intersect < temp_max:
-                press = self(self.temperature["max"])
-                if press_min <= press <= press_max:
-                    domain.append((temp_intersect, self.temperature["max"]))
-
-        self.domain = domain
+        self.domain = _merge_intervals(segments)
 
         return bool(self.domain)
 
@@ -445,103 +485,88 @@ class TPCurve:
         self,
         temperature_range: FloatRange,
         pressure_range: FloatRange,
+        *,
+        atol: float = 1e-9,
+        rtol: float = 1e-9,
     ) -> list[CartesianCoord]:
         """
         Find the points at which the curve meets the boundary of a T-P rectangle.
 
-        Both the vertical edges (the curve evaluated at the bounds of
-        `temperature_range`) and the horizontal edges (the real roots of each
-        polynomial minus each bound of `pressure_range`, restricted to that
-        polynomial's piece) are considered. Only points in the current domain
-        and inside the (closed) rectangle are kept.
+        Only temperatures in the current domain are considered. On the vertical
+        edges, the curve is evaluated and kept if it is inside the rectangle.
+        On the horizontal edges, the real roots of each polynomial minus the
+        bound are kept if they lie within `temperature_range` and the
+        polynomial's piece. Values just outside a bound, by rounding, are
+        snapped onto it (see `_snap`); a root snapped onto the end of its piece
+        is kept only if the curve's pressure there is close to the bound.
 
         @param temperature_range The temperature bounds of the rectangle
         @param pressure_range    The pressure bounds of the rectangle
+        @param atol              The (keyword-only) absolute tolerance
+        @param rtol              The (keyword-only) relative tolerance
 
-        @return The distinct `(temperature, pressure)` intersections, sorted,
-                with pressures given by evaluating the curve
+        @return The distinct `(temperature, pressure)` intersections, sorted.
 
-        @throws RuntimeError if the curve has more than two polynomials (which
-                `__init__` prevents)
-
-        @todo The walrus `press := self(temp)` in the root comprehension
-              rebinds the enclosing loop variable `press`, so the second
-              polynomial's roots are computed against the last evaluated
-              pressure rather than the bound itself. These typically differ
-              only by rounding, but the binding is fragile.
-        @todo Roots at `mid` can be found by both polynomials, yielding
-              near-duplicate points that `set` does not remove.
+        @todo Roots are taken to be real only if their imaginary parts are
+              exactly zero (`np.isreal`), so a root that `np.roots` returns
+              with a tiny imaginary part, e.g. where the curve touches an edge,
+              is missed.
+        @todo The bounds of `temperature_range` are not snapped, so one lying
+              just outside the domain, by rounding, is not reported.
         """
         temp_min, temp_max = temperature_range
         press_min, press_max = pressure_range
 
+        temp_bounds = [
+            (self.temperature["min"], self.temperature["mid"]),
+            (self.temperature["mid"], self.temperature["max"]),
+        ]
+
         intersections = [
             (temp, press)
             for temp in temperature_range
-            if self.temperature_in_domain(temp) and press_min <= (press := self(temp)) <= press_max
+            if self.temperature_in_domain(temp)
+            and press_min <= (press := _snap(self(temp), pressure_range, atol=atol, rtol=rtol)) <= press_max
         ]
-
-        for press in pressure_range:
-            for i, coefficients in enumerate(self.pressure):
-                if i == 0:
-                    temp_bounds = self.temperature["min"], self.temperature["mid"]
-                elif i == 1:
-                    temp_bounds = self.temperature["mid"], self.temperature["max"]
-                else:
-                    # This should never raise as __init__ ensures that len(self.pressure) == 2
-                    msg = "temperature-pressure curve has more than two domains"
-                    raise RuntimeError(msg)
-
+        for i, coefficients in enumerate(self.pressure):
+            for press in pressure_range:
                 coeff = np.copy(coefficients)
-                # NOTE: The slice here deals with the fact that `ndarray.__getitem__` with an int is
-                #       typed `Any`. Without the slice, we get a type error.
-                #
-                #       An alternative is to use a cast: `coeff[0] = cast(np.float64, coeff[0]) - press`
-                coeff[:1] -= press
+                coeff[0] = coeff[0] - press
                 roots = np.roots(coeff[::-1])
                 real_roots: Array1D[np.float64] = np.asarray(np.real(roots[np.isreal(roots)]), dtype=np.float64)
-
                 intersections.extend(
-                    (temp, press)
+                    (t, press)
                     for temp in real_roots
-                    if temp_min <= temp <= temp_max
-                    and temp_bounds[0] <= temp <= temp_bounds[1]
-                    and self.temperature_in_domain(temp)
-                    and press_min <= (press := self(temp)) <= press_max
+                    if temp_min <= (t := _snap(temp, temp_bounds[i], atol=atol, rtol=rtol)) <= temp_max
+                    and temp_bounds[i][0] <= t <= temp_bounds[i][1]
+                    and self.temperature_in_domain(t)
+                    and (t == temp or np.isclose(self(t), press, atol=atol, rtol=rtol))
                 )
 
-        return sorted(set(intersections))
+        distinct: list[CartesianCoord] = []
+        for t, p in sorted(set(intersections)):
+            if (
+                not distinct
+                or not np.isclose(t, distinct[-1][0], atol=atol, rtol=rtol)
+                or not np.isclose(distinct[-1][1], p, atol=atol, rtol=rtol)
+            ):
+                distinct.append((t, p))
+
+        return distinct
 
     @staticmethod
     def union_domains(curves: list[TPCurve]) -> list[FloatRange]:
         """
         Compute the union of the domains of a collection of curves.
 
-        Overlapping and touching intervals are merged.
+        Overlapping and touching intervals, including single points, are merged
+        (see `_merge_intervals`).
 
         @param curves The curves whose domains are combined
 
         @return The disjoint intervals making up the union, sorted
         """
-        subdomains = [subdomain for curve in curves for subdomain in curve.domain]
-        subdomains = sorted(set(subdomains))
-
-        if len(subdomains) == 0:
-            return subdomains
-
-        domain: list[FloatRange] = []
-        (start, stop), *_rest = subdomains
-        for i in range(1, len(subdomains)):
-            (a, b) = subdomains[i]
-            if a <= stop < b:
-                stop = b
-            elif stop < b:
-                domain.append((start, stop))
-                start, stop = a, b
-
-        domain.append((start, stop))
-
-        return domain
+        return _merge_intervals(subdomain for curve in curves for subdomain in curve.domain)
 
     @classmethod
     def sample(
