@@ -381,10 +381,6 @@ class TPCurve:
                 endpoint is in the rectangle, which indicates a bug in
                 `find_boundary_intersections`; the domain is then left as
                 `[min, max]`
-
-        @todo With two or more intersections, a segment between an endpoint
-              of the curve lying inside the rectangle and the first (or last)
-              intersection is not included in the domain.
         """
         _ = self.reset_domain()
 
@@ -407,7 +403,6 @@ class TPCurve:
 
             if endpoints > 1:
                 domain = [(self.temperature["min"], self.temperature["max"])]
-
         elif len(intersections) == 1:
             ((temp_intersect, _),) = intersections
             is_single_point = True
@@ -423,12 +418,24 @@ class TPCurve:
             if is_single_point:
                 domain.append((temp_intersect, temp_intersect))
         else:
+            (temp_intersect, _) = intersections[0]
+            if temp_min <= self.temperature["min"] <= temp_intersect and temp_min < temp_intersect:
+                press = self(self.temperature["min"])
+                if press_min <= press <= press_max:
+                    domain.append((self.temperature["min"], temp_intersect))
+
             for i in range(len(intersections) - 1):
                 temp_1, _ = intersections[i]
                 temp_2, _ = intersections[i + 1]
                 press = self((temp_1 + temp_2) / 2)
                 if press_min <= press <= press_max:
                     domain.append((temp_1, temp_2))
+
+            (temp_intersect, _) = intersections[-1]
+            if temp_intersect <= self.temperature["max"] <= temp_max and temp_intersect < temp_max:
+                press = self(self.temperature["max"])
+                if press_min <= press <= press_max:
+                    domain.append((temp_intersect, self.temperature["max"]))
 
         self.domain = domain
 

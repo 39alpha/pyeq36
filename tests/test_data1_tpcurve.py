@@ -1,4 +1,16 @@
-"""Test the temperature-pressure curve `eq36.data1.TPCurve`."""
+"""
+Test the temperature-pressure curve `eq36.data1.TPCurve`.
+
+@todo Harden the `set_domain` tests. The no- and one-intersection tests mock
+      `find_boundary_intersections`, and `test_set_domain_with_one_intersection`
+      (`both-sides`) uses an impossible intersection for a curve lying wholly
+      inside the rectangle. Untested crossings include: exactly one real
+      crossing; crossing a temperature edge mid-curve; crossing at a corner;
+      touching an edge without crossing; running along an edge; differing left
+      and right polynomials, including crossings at `mid`; and a rectangle
+      narrower in temperature than the curve. A Hypothesis test comparing the
+      domain with a dense temperature grid may cover these more broadly.
+"""
 
 from __future__ import annotations
 
@@ -226,18 +238,6 @@ def test_set_domain_with_one_intersection(
     assert curve.domain == expected
 
 
-def test_set_domain_with_multiple_intersections(mocker: MockerFixture) -> None:
-    """
-    Ensure that `set_domain` keeps the intervals between consecutive intersections that lie in the region.
-
-    @param mocker The pytest-mock mocker fixture
-    """
-    mock_intersections(mocker, [(np.float64(t), np.float64(1.0)) for t in (1.0, 3.0, 8.0)])
-    curve = constant_curve()
-    assert curve.set_domain(interval(0.0, 10.0), interval(0.0, 2.0))
-    assert curve.domain == [interval(1.0, 3.0), interval(3.0, 8.0)]
-
-
 @pytest.mark.parametrize(
     ("first", "second"),
     [
@@ -271,6 +271,94 @@ def test_set_domain_ignores_previous_restriction(
 
     assert restricted.set_domain(*second) == unrestricted.set_domain(*second)
     assert restricted.domain == unrestricted.domain
+
+
+## The roots, `3 - sqrt(3)` and `3 + sqrt(3)`, of the pressure polynomial `-T**2 + 6*T - 6`
+LOWER_ROOT, UPPER_ROOT = 3.0 - np.sqrt(3.0), 3.0 + np.sqrt(3.0)
+
+
+@pytest.mark.parametrize(
+    ("temperature", "expected"),
+    [
+        ((1.5, 4.5), [(1.5, 2.0), (4.0, 4.5)]),
+        ((1.5, 5.5), [(1.5, 2.0), (4.0, UPPER_ROOT)]),
+        ((0.5, 4.5), [(LOWER_ROOT, 2.0), (4.0, 4.5)]),
+        ((0.5, 5.5), [(LOWER_ROOT, 2.0), (4.0, UPPER_ROOT)]),
+    ],
+    ids=["both-endpoints", "first-endpoint", "last-endpoint", "no-endpoints"],
+)
+def test_set_domain_includes_segments_at_endpoints(
+    temperature: tuple[float, float],
+    expected: list[tuple[float, float]],
+) -> None:
+    """
+    Ensure that `set_domain` includes the segments between an endpoint in the rectangle and the nearest intersection.
+
+    The curve, `p = -T**2 + 6*T - 6` (with `mid` at its peak, `T = 3`), rises
+    above the rectangle `[0, 6] x [0, 2]` between `T = 2` and `T = 4`. Each
+    endpoint lies either in the rectangle or below it, where the curve crosses
+    `p = 0` at `LOWER_ROOT` or `UPPER_ROOT`. For `no-endpoints`, both lie below
+    it, so the domain is made up only of intervals between intersections.
+
+    @param temperature The minimum and maximum temperatures of the curve
+    @param expected    The expected domain
+    """
+    coefficients = np.array([-6.0, 6.0, -1.0])
+    temperatures = {"min": np.float64(temperature[0]), "mid": np.float64(3.0), "max": np.float64(temperature[1])}
+    curve = TPCurve(temperatures, (coefficients, coefficients))
+
+    assert curve.set_domain(interval(0.0, 6.0), interval(0.0, 2.0))
+    assert len(curve.domain) == len(expected)
+    for actual, bounds in zip(curve.domain, expected, strict=True):
+        assert actual == pytest.approx(bounds)
+
+
+@pytest.mark.parametrize(
+    ("temperature", "temperature_range", "expected"),
+    [
+        ((2.0, 4.5), (0.0, 6.0), [(2.0, 2.0), (4.0, 4.5)]),
+        ((1.5, 4.0), (0.0, 6.0), [(1.5, 2.0), (4.0, 4.0)]),
+        ((2.0, 4.0), (0.0, 6.0), [(2.0, 2.0), (4.0, 4.0)]),
+        ((1.5, 4.5), (1.5, 6.0), [(1.5, 2.0), (4.0, 4.5)]),
+        ((1.5, 4.5), (0.0, 4.5), [(1.5, 2.0), (4.0, 4.5)]),
+    ],
+    ids=[
+        "first-on-boundary-curve-outside",
+        "last-on-boundary-curve-outside",
+        "both-on-boundary-curve-outside",
+        "first-on-boundary-curve-inside",
+        "last-on-boundary-curve-inside",
+    ],
+)
+def test_set_domain_includes_endpoints_on_boundary(
+    temperature: tuple[float, float],
+    temperature_range: tuple[float, float],
+    expected: list[tuple[float, float]],
+) -> None:
+    """
+    Ensure that `set_domain` includes an endpoint on the boundary as a single point if the curve leaves the rectangle.
+
+    The curve, `p = -T**2 + 6*T - 6` (with `mid` at its peak, `T = 3`), is
+    above the rectangle `temperature_range x [0, 2]` between `T = 2` and
+    `T = 4`, where it meets the top edge. Each case names the endpoint(s) on
+    the boundary and whether the curve beside them lies outside or inside the
+    rectangle. An endpoint at `T = 2` or `T = 4`, beside which the curve is
+    outside, touches the rectangle only at that point. An endpoint on the edge
+    `T = 1.5` or `T = 4.5`, beside which the curve is inside, instead bounds an
+    interval, and should not also appear as a single point.
+
+    @param temperature       The minimum and maximum temperatures of the curve
+    @param temperature_range The temperature bounds of the rectangle
+    @param expected          The expected domain
+    """
+    coefficients = np.array([-6.0, 6.0, -1.0])
+    temperatures = {"min": np.float64(temperature[0]), "mid": np.float64(3.0), "max": np.float64(temperature[1])}
+    curve = TPCurve(temperatures, (coefficients, coefficients))
+
+    assert curve.set_domain(interval(*temperature_range), interval(0.0, 2.0))
+    assert len(curve.domain) == len(expected)
+    for actual, bounds in zip(curve.domain, expected, strict=True):
+        assert actual == pytest.approx(bounds)
 
 
 def test_find_boundary_intersections_includes_temperature_bounds() -> None:
