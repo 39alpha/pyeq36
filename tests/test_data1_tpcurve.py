@@ -22,6 +22,8 @@ import pytest
 from eq36.data1 import TPCurve
 
 if TYPE_CHECKING:
+    from unittest.mock import MagicMock
+
     from pytest_mock import MockerFixture
 
     from eq36.data1 import CartesianCoord, FloatRange
@@ -437,10 +439,14 @@ def test_sample(
     @param selected The indices of the curves expected to be selected
     """
     curves = [constant_curve(domain) for domain in domains]
-    rng = mocker.create_autospec(
-        np.random.Generator,
-        instance=True,
-        **{"uniform.return_value": np.array(uniform), "integers.return_value": 0},
+    # Configure after creation: before Python 3.12, `create_autospec` replaces
+    # children configured via keyword arguments with fresh autospecced ones.
+    rng: MagicMock = mocker.create_autospec(np.random.Generator, instance=True)
+    rng.configure_mock(
+        **{
+            "uniform.return_value": np.array(uniform),
+            "integers.return_value": 0,
+        }
     )
 
     sampled_temps, sampled_presses, sampled_curves = TPCurve.sample(curves, len(uniform), rng=rng)
