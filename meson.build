@@ -30,4 +30,6 @@ if get_option('buildtype') == 'release'
   add_project_link_arguments(fc.get_supported_arguments('-flto=auto'), language: 'fortran')
 endif
 
-shared_library('pyeq36', 'src/eq36/pyeq36_data1.f90')
+link_args = host_machine.system() == 'windows' ? ['-static'] : []
+
+shared_library('pyeq36', 'src/eq36/pyeq36_data1.f90', link_args: link_args)
