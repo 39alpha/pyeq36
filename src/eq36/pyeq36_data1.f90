@@ -17,15 +17,6 @@
 !!
 !! Errors are not reported individually. The messages written by the original EQLIB routines have
 !! been removed, and errors are only counted, in `errno` or `nerr`.
-!!
-!! @todo Reads have no `iostat` or `err` handling, so a truncated or malformed file terminates the
-!!       program, and with it the calling Python process.
-!! @todo Array indices are not checked against the allocation sizes passed in, so a data file with
-!!       more entries than its header allows for, or arrays allocated too small by the caller, lead
-!!       to out-of-bounds writes.
-!! @todo Many routines still compute string lengths (with `ilnobl`) or format names (with `fmspnm`)
-!!       solely for the messages that have been removed. Consider removing this code, or reporting
-!!       the errors to the caller.
 module pyeq36_data1
     implicit none
 
@@ -1610,10 +1601,6 @@ contains
     !! @param[in]     uspeca    The names of the species
     !! @param[in]     zchara    The electrical charges of the species, used to identify cation-anion
     !!                          pairs
-    !!
-    !! @todo If a species of a pair is not found, `srchn` returns 0, and `zchara(0)` is read out of
-    !!       bounds.
-    !! @todo On error, `nslta`, `nmuta` and `napta` are left unset.
     subroutine inupt(amua, aslma, ielam, ipbt_asv, jpdblo, jpfc_asv, nad1, &
                      nalpaa, napa_asv, napta, narn1a, narn2a, nerr, nmuta, &
                      nmuta_asv, nmuxa, nslta, nslta_asv, nslxa, nsta_asv, palpaa, &
@@ -1987,13 +1974,6 @@ contains
     !! @param[in,out] uspeca    The names of the species, including their phase names
     !! @param[in,out] vosp0a    The molar volumes of the species, which are set to zero
     !! @param[in,out] zchara    The electrical charges of the species
-    !!
-    !! @todo For pressure corrections of order 2 or more, `write (uhx(3:3),'(i1)') ipc,ipc` (and the
-    !!       equivalents) write two values to a one-character internal file, which is a runtime
-    !!       error. Orders of 10 or more would also not fit.
-    !! @todo The comment on the volume function of a basis species calls it the "standard partial
-    !!       molar enthalpy of formation"; presumably it is the volume of formation.
-    !! @todo The pure liquid branches are never reached, as `indata` has no pure liquid superblock.
     subroutine indats(adhfsa, advfsa, axhfsa, axlksa, axvfsa, cdrsa, cdrsv, cessa, &
                       cessv, ipch, ipch_asv, ipcv, ipcv_asv, mwtspa, nad1, narxt, &
                       narx_asv, nata, nbta, nbta_asv, nbta1_asv, nbtafd, &
@@ -2234,8 +2214,8 @@ contains
                     uhx = 'dEnthalpy/dP'
                 else
                     uhx = 'd( )Enthalpy/dP( )'
-                    write (uhx(3:3),'(i1)') ipc,ipc
-                    write (uhx(17:17),'(i1)') ipc,ipc
+                    write (uhx(3:3),'(i1)') ipc
+                    write (uhx(17:17),'(i1)') ipc
                 end if
                 j7 = ilnobl(uhx)
                 if (uhx(1:j7) .ne. ux24(1:j6)) then
@@ -2374,10 +2354,6 @@ contains
     !! @param[in]     uphasa    The names of the phases
     !! @param[in,out] uspeca    The names of the species, including their phase names
     !! @param[in,out] zchara    The electrical charges of the species
-    !!
-    !! @todo Only the log K coefficients are copied; the enthalpy and volume functions (`axhfsa`,
-    !!       `axvfsa`, `adhfsa` and `advfsa`) and the molar volume (`vosp0a`) of the clone are left
-    !!       as they are (zero, when called from `indata`).
     subroutine clones(axlksa, cdrsa, cessa, mwtspa, narx_asv, ndrsa, ndrsa_asv, &
                       ndrsn, ndrsra, nessa, nessa_asv, nessn, nessra, np, &
                       npta_asv, ns, nsc, nsta_asv, ntpr_asv, uphasa, uspeca, zchara)
