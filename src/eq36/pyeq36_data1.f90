@@ -16,7 +16,7 @@
 !! pure minerals).
 !!
 !! Errors are not reported individually. The messages written by the original EQLIB routines have
-!! been commented out, and errors are only counted, in `errno` or `nerr`.
+!! been removed, and errors are only counted, in `errno` or `nerr`.
 !!
 !! @todo Reads have no `iostat` or `err` handling, so a truncated or malformed file terminates the
 !!       program, and with it the calling Python process.
@@ -24,8 +24,8 @@
 !!       more entries than its header allows for, or arrays allocated too small by the caller, lead
 !!       to out-of-bounds writes.
 !! @todo Many routines still compute string lengths (with `ilnobl`) or format names (with `fmspnm`)
-!!       solely for messages whose `write` statements are commented out. Consider removing this
-!!       code, or reporting the errors to the caller.
+!!       solely for the messages that have been removed. Consider removing this code, or reporting
+!!       the errors to the caller.
 module pyeq36_data1
     implicit none
 
@@ -1156,8 +1156,6 @@ contains
 
         integer igx,j2,na,naz,ncount,ns
 
-        ! integer ilnobl
-
         real(kind=8) azdef,azx
 
         character(len=24) unam,unam1,unam2
@@ -1194,11 +1192,6 @@ contains
             ! If not found among the loaded species, skip.
             if (ns .le. 0) then
                 j2 = ilnobl(unam)
-         !        write (noutpt,1020) unam(1:j2)
-         !        write (nttyo,1020) unam(1:j2)
-         ! 1020   format(/' * Warning - (EQLIB/inbdot) Have B-dot model',
-         !     $  ' parameters listed',/7x,'for an aqueous species named ',a,
-         !     $  ', but there is',/7x,'no data block for such a species.')
                 go to 110
         end if
 
@@ -1208,25 +1201,11 @@ contains
         ! Test for duplicate input.
 
         if (azeroa(na) .gt. 0.) then
-     !        write (noutpt,1030) unam(1:j2),azx,igx,azeroa(na),insgfa(na)
-     !        write (nttyo,1030) unam(1:j2),azx,igx,azeroa(na),insgfa(na)
-     ! 1030   format(/' * Warning - (EQLIB/inbdot) Have a duplicate entry',
-     !     $  ' on the data file for',/7x,'the B-dot model parameters of',
-     !     $  ' the species ',a,'.',/7x,'The duplicate entry values are:',
-     !     $  //9x,'azero= ',f7.2,', insgf= ',i3,
-     !     $  //7x,'The first entry values are:',
-     !     $  //9x,'azero= ',f7.2,', insgf= ',i3,
-     !     $  //7x,'The first entry values will be used.')
             go to 110
         end if
 
         naz = naz + 1
         if (naz .gt. nata) then
-     !        write (noutpt,1040) nata
-     !        write (nttyo,1040) nata
-     ! 1040   format(/' * Error - (EQLIB/inbdot) There are more entries',
-     !     $  /7x,'for species with  B-dot model parameters than there are',
-     !     $  /7x,'aqueous species, which number ',i4,'.')
             nerr = nerr + 1
             go to 999
         end if
@@ -1242,11 +1221,6 @@ contains
         go to 999
 
         ! Assign the default value if needed.
-
-        ! 140 write (noutpt,1050) azdef
-        ! 1050 format(/' * Note - (EQLIB/inbdot) The following aqueous species',
-        !     $ ' have been assigned',/7x,'a default hard core diameter of',
-        !     $ ' ',f6.3,' x 10**-8 cm:',/)
         140 continue
         ncount = 0
         do ns = narn1a,narn2a
@@ -1260,8 +1234,6 @@ contains
                     else
                         unam2 = uspeca(ns)(1:24)
                         j2 = ilnobl(unam2)
-                        ! write (noutpt,1060) unam1,unam2(1:j2)
-                        ! 1060 format(9x,a24,3x,a)
                         ncount = 0
                     end if
                 end if
@@ -1270,8 +1242,6 @@ contains
 
         if (ncount .eq. 1) then
             j2 = ilnobl(unam1)
-            ! write (noutpt,1070) unam1(1:j2)
-            ! 1070 format(9x,a)
         end if
         999 continue
     end subroutine inbdot
@@ -1409,7 +1379,6 @@ contains
         character(len=*), intent(inout) :: ustr
 
         integer j, jj, jbl, j1, nchars
-        ! integer ifnobl
 
         nchars = len(ustr)
         j1 = ifnobl(ustr)
@@ -1511,8 +1480,6 @@ contains
         real(kind=8) mwtspa(nsta_asv),zchara(nsta_asv)
         integer j2,j3,jsolv,n,ncmptv,nsc,nx
 
-        ! integer ilnobl
-
         character(len=24) uphasv
         character(len=24), dimension(:), allocatable :: ucompv
 
@@ -1541,10 +1508,6 @@ contains
             read (nad1) (ucompv(n), n = 1,ncmptv)
         else
             nerr = nerr + 1
-     !        write (noutpt,1020) uphasv(1:j3)
-     !        write (noutpt,1020) uphasv(1:j3)
-     ! 1020   format(/' * Error - (EQLIB/indatp) The solid solution ',a,
-     !     $  /7x,'has no components specified on the data file.')
         end if
 
         ! Read the activity coefficient parameters, first the ordinary parameters
@@ -1572,11 +1535,6 @@ contains
 
             ! The listed component was not found as a pure mineral species.
             j2 = ilnobl(ucompv(n))
-            !        write (noutpt,1040) ucompv(n)(1:j2),uphasv(1:j3)
-            !        write (nttyo,1040) ucompv(n)(1:j2),uphasv(1:j3)
-            ! 1040   format(/" * Error - (EQLIB/indatp) Couldn't find the pure",
-            !     $  ' phase equivalent',/7x,'of the species',/7x,a,' (',a,'),',
-            !     $  ' therefore',/7x,'could not create it by cloning.')
             nerr = nerr + 1
             130 continue
         end do
@@ -1683,8 +1641,6 @@ contains
 
         integer i, j, ja, j2, nblock, nmu, ns, nsl
 
-        ! integer ilnobl
-
         logical qx
 
         character(len=80) uline
@@ -1705,15 +1661,6 @@ contains
                 write (ux8,'(i5)') ipbt_asv
                 call lejust(ux8)
                 j2 = ilnobl(ux8)
-                !          write (noutpt,1000) ux8(1:j2)
-                !          write (nttyo,1000) ux8(1:j2)
-                ! 1000     format(/' * Error - (EQLIB/inupt) Have an illegal value',
-                !     $    ' of ',a,' for the array',/7x,'allocation size variable',
-                !     $    ' ipbt_asv (number of Pitzer alpha parameters',/7x,'for ',
-                !     $    ' any cation-anion or like pair. For the classical Pitzer',
-                !     $    /7x,'data block organization present here, this variable',
-                !     $    ' must have',/7x,'a value of 2.')
-                !          stop
                 nerr = nerr + 1
                 go to 999
             end if
@@ -1732,12 +1679,6 @@ contains
                 ielam = 0
             else
                 j2 = ilnobl(uelam)
-                !          write (noutpt,1010) uelam(1:j2)
-                !          write (nttyo,1010) uelam(1:j2)
-                ! 1010     format(/' * Error - (EQLIB/inupt) Have read an unrecognized',
-                !     $    /7x,'value of "',a,'" for the E-lambda (E-theta) flag from',
-                !     $    /7x,'the data file. Allowed values are "on" and "off".')
-                !          stop
                 nerr = nerr + 1
                 go to 999
             end if
@@ -2018,10 +1959,10 @@ contains
     !! @param[in,out] ndrsn     The number of entries used in `cdrsa` and `ndrsa`
     !! @param[in,out] ndrsra    The indices of the first and last coefficients of the reaction of
     !!                          each species
-    !! @param[in,out] nerr      The error count; incremented for an unrecognized element, for O2(g)
-    !!                          with no elements in the gas superblock, for a reaction with only one
-    !!                          species, for a species missing from its own reaction, and for each
-    !!                          unexpected label
+    !! @param[in,out] nerr      The error count; incremented for an unrecognized element, for a
+    !!                          species with no elements other than e- or O2(g) outside the gas
+    !!                          superblock, for a reaction with only one species, for a species
+    !!                          missing from its own reaction, and for each unexpected label
     !! @param[in,out] nessa     The element index of each composition coefficient in `cessa`
     !! @param[in]     nessa_asv The size of `cessa` and `nessa`
     !! @param[in,out] nessn     The number of entries used in `cessa` and `nessa`
@@ -2153,15 +2094,6 @@ contains
                     end if
                 end do
                 j4 = ilnobl(uessv(n))
-                !          write (noutpt,1010) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5),
-                !     $    uessv(n)(1:j4)
-                !          write (nttyo,1010) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5),
-                !     $    uessv(n)(1:j4)
-                ! 1010     format(/' * Error - (EQLIB/indats) The species',
-                !     $    /7x,a,' (',a,')',
-                !     $    /7x,'appearing on the data file in the ',a,' superblock',
-                !     $    /7x,'is listed as being composed of an unrecognized',
-                !     $    /7x,'chemical element ',a,'.')
                 nerr = nerr + 1
                 120  continue
             end do
@@ -2173,20 +2105,10 @@ contains
             !   e-    in any phase
             if (uspecv(1:5) .eq. 'O2(g)') then
                 if (usblkf(1:24) .eq. uptgas(1:24)) then
-                    !            write (noutpt,1020) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5)
-                    !            write (nttyo,1020) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5)
-                    ! 1020       format(/' * Error - (EQLIB/indats) The species',
-                    !     $      /7x,a,' (',a,')',
-                    !     $      /7x,'appearing on the data file in the ',a,' superblock',
-                    !     $      /7x,'is comprised of no chemical elements.')
                     nerr = nerr + 1
                 end if
-            else if (uspecv(1:2) .eq. uelect(1:2)) then
-                continue
-            else
-                ! write (noutpt,1020) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5)
-                ! write (nttyo,1020) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5)
-                ! nerr = nerr + 1
+            else if (uspecv(1:2) .ne. uelect(1:2)) then
+                nerr = nerr + 1
             end if
 
             ! A species with no elements is treated as being comprised of one "null"
@@ -2235,12 +2157,6 @@ contains
                 end do
             end do
         else if (ndrstv .eq. 1) then
-            !        write (noutpt,1030) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5)
-            !        write (nttyo,1030) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5)
-            ! 1030   format(/' * Error - (EQLIB/indats) The species'
-            !     $  /7x,a,' (',a,')',
-            !     $  /7x,'appearing on the data file in the ',a,' superblock',
-            !     $  /7x,'has a reaction with only one species in it.')
             nerr = nerr + 1
         else
             ! Make sure that the species associated with the reaction is the first
@@ -2254,19 +2170,6 @@ contains
                 end if
             end do
 
-            !        write (noutpt,1040) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5)
-            !        write (nttyo,1040) uspecv(1:j2),uphasv(1:j3),usblkf(1:j5)
-            ! 1040   format(/' * Error - (EQLIB/indats) The species',
-            !     $  /7x,a,' (',a,')',
-            !     $  /7x,'appearing on the data file in the ',a,' superblock',
-            !     $  /7x,'does not appear in its associated reaction.')
-            !        j4 = ilnobl(udrsv(1))
-            !        write (noutpt,1050) udrsv(1)(1:j4),uphasv(1:j3),uspecv(1:j2),
-            !     $  uphasv(1:j3)
-            !        write (nttyo,1050) udrsv(1)(1:j4),uphasv(1:j3),uspecv(1:j2),
-            !     $  uphasv(1:j3)
-            ! 1050   format(/9x,'Is ',a,' (',a,') a doppelganger of',
-            !     $  /12x,a,' (',a,')?')
             udrsv(1) = uspecv
             nerr = nerr + 1
 
@@ -2309,10 +2212,6 @@ contains
             uhx = 'Log K'
             j7 = ilnobl(uhx)
             if (uhx(1:j7) .ne. ux24(1:j6)) then
-                !          write (noutpt,1052) ux24(1:j6),uhx(1:j7)
-                !          write (nttyo,1052) ux24(1:j6),uhx(1:j7)
-                ! 1052     format(/' * Error - (EQLIB/indats) Have read the tag',
-                !     $    ' string "',a,'"',/7x,'where "',a,'" was expected.')
                 nerr = nerr + 1
             end if
             do ntpr = 1,ntprt
@@ -2331,8 +2230,6 @@ contains
             uhx = 'Enthalpy'
             j7 = ilnobl(uhx)
             if (uhx(1:j7) .ne. ux24(1:j6)) then
-                ! write (noutpt,1052) ux24(1:j6),uhx(1:j7)
-                ! write (nttyo,1052) ux24(1:j6),uhx(1:j7)
                 nerr = nerr + 1
             end if
             do ntpr = 1,ntprt
@@ -2350,8 +2247,6 @@ contains
                 end if
                 j7 = ilnobl(uhx)
                 if (uhx(1:j7) .ne. ux24(1:j6)) then
-                    ! write (noutpt,1052) ux24(1:j6),uhx(1:j7)
-                    ! write (nttyo,1052) ux24(1:j6),uhx(1:j7)
                     nerr = nerr + 1
                 end if
                 do ntpr = 1,ntprt
@@ -2371,8 +2266,6 @@ contains
             uhx = 'Volume'
             j7 = ilnobl(uhx)
             if (uhx(1:j7) .ne. ux24(1:j6)) then
-                ! write (noutpt,1052) ux24(1:j6),uhx(1:j7)
-                ! write (nttyo,1052) ux24(1:j6),uhx(1:j7)
                 nerr = nerr + 1
             end if
             do ntpr = 1,ntprt
@@ -2390,8 +2283,6 @@ contains
                 end if
                 j7 = ilnobl(uhx)
                 if (uhx(1:j7) .ne. ux24(1:j6)) then
-                    ! write (noutpt,1052) ux24(1:j6),uhx(1:j7)
-                    ! write (nttyo,1052) ux24(1:j6),uhx(1:j7)
                     nerr = nerr + 1
                 end if
                 do ntpr = 1,ntprt
@@ -2617,12 +2508,6 @@ contains
             !     ubasp(nb) for unam48
 
             call fmspnm(jlen,ubasp(nb),uspn56)
-     !        write (noutpt,1000) uspn56(1:jlen)
-     !        write (nttyo,1000) uspn56(1:jlen)
-     ! 1000   format(/" * Error - (EQLIB/dfbasp) Couldn't find a basis",
-     !     $  ' species named',/7x,a,' among the species read from the',
-     !     $  ' data file.',/7x,'It must be referenced erroneously in',
-     !     $  ' the associated reaction',/7x,'for another species.')
             nerr = nerr + 1
       105   continue
         end do
@@ -2664,8 +2549,6 @@ contains
         character(len=56) uspn56
 
         integer j2
-
-        ! integer ilnobl
 
         character(len=24) uphnam
 
