@@ -118,9 +118,6 @@ contains
     !!
     !! @note These are allocation sizes, i.e. upper bounds, which need not equal the numbers of
     !!       entities that `indata` reads.
-    !!
-    !! @todo As in `openin`, `errno` is not set on success.
-    !! @todo If the file is not a data1 file, the other outputs are left undefined.
     subroutine indath(data1, ikta_asv, ipbt_asv, ipch_asv, ipcv_asv, jpfc_asv, &
                       napa_asv, narx_asv, nata_asv, nbta_asv, ncta_asv, ngta_asv, &
                       nlta_asv, nmta_asv, npta_asv, nmuta_asv, nslta_asv, &
@@ -155,6 +152,8 @@ contains
         ! Local variable declarations.
         character(len=56) ux56
         character(len=8) ux8
+
+        errno = 0
 
         rewind data1
 
