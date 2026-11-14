@@ -206,8 +206,9 @@ def eqpt(data0: str | Path, timeout: float | None = None, error_check: bool = Tr
     @throws Eq36Error with `RunCode.EQPT_ERROR` if `stdout` includes an error message and `error_check == True`
     @throws Eq36Error with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
     @throws Eq36Error with `RunCode.TIMEOUT` if the command times out
-    @throws RuntimeError if the package `bin` directory does not exist
-    @throws Exception if the `eqpt` executable is not found
+    @throws RuntimeError if the `bin` directory does not exist
+    @throws RuntimeError if the `eqpt` executable is not found
+    @throws OSError if the executable cannot be executed
     """
     return _run(
         get_execpath("eqpt"),
@@ -235,8 +236,9 @@ def eq3nr(data1: str | Path, threei: str | Path, timeout: float | None = None) -
     @throws Eq36Error with `RunCode.EQ3_ERROR` if `stdout` includes an error message
     @throws Eq36Error with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
     @throws Eq36Error with `RunCode.TIMEOUT` if the command times out
-    @throws RuntimeError if the package `bin` directory does not exist
-    @throws Exception if the `eq3nr` executable is not found
+    @throws RuntimeError if the `bin` directory does not exist
+    @throws RuntimeError if the `eq3nr` executable is not found
+    @throws OSError if the executable cannot be executed
     """
     return _run(get_execpath("eq3nr"), str(data1), str(threei), timeout=timeout, fname=threei, code=RunCode.EQ3_ERROR)
 
@@ -257,7 +259,8 @@ def eq6(data1: str | Path, sixi: str | Path, timeout: float | None = None) -> tu
     @throws Eq36Error with `RunCode.EQ6_ERROR` if `stdout` includes an error message
     @throws Eq36Error with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
     @throws Eq36Error with `RunCode.TIMEOUT` if the command times out
-    @throws RuntimeError if the package `bin` directory does not exist
-    @throws Exception if the `eq6` executable is not found
+    @throws RuntimeError if the `bin` directory does not exist
+    @throws RuntimeError if the `eq6` executable is not found
+    @throws OSError if the executable cannot be executed
     """
     return _run(get_execpath("eq6"), str(data1), str(sixi), timeout=timeout, fname=sixi, code=RunCode.EQ6_ERROR)
