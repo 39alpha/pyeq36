@@ -1,5 +1,5 @@
 """
-Test the temperature-pressure curve `eq36.data1.TPCurve`.
+Test the temperature-pressure curve `eq36.curves.TPCurve`.
 
 @todo Test the cases that remain untested, each noted by a `@todo` in
       `eq36.data1`:
@@ -45,15 +45,14 @@ from hypothesis import example, given
 from hypothesis import strategies as st
 from numpy.polynomial import polynomial
 
-from eq36.data1 import TPCurve, _merge_intervals
+from eq36.curves import TPCurve, _merge_intervals
 
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
     from pytest_mock import MockerFixture
 
-    from eq36.data1 import FloatRange
-    from eq36.typing import Array1D
+    from eq36.typing import Array1D, FloatRange
 
 ## The type of the pressure polynomials of a `TPCurve`
 Pressure: TypeAlias = "tuple[Array1D[np.float64], Array1D[np.float64]]"
