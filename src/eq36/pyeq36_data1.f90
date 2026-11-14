@@ -1452,11 +1452,6 @@ contains
     !! @param[in]     uptsld    The type of solid phases, `Solid`
     !! @param[in,out] uptypa    The type of each phase
     !! @param[in,out] zchara    The electrical charges of the species
-    !!
-    !! @todo The number of components of a solid solution is not checked against `ikta_asv`, the
-    !!       size of the `ucompv` workspace.
-    !! @todo A component that is not found among the pure minerals still takes a species index (`ns`
-    !!       is incremented), leaving an uninitialized species in the solid solution.
     subroutine indatp(apxa, axlksa, bpxa, cdrsa, cessa, iapxa_asv, iapxta, &
                       ibpxa_asv, ibpxta, ikta_asv, jsola, mwtspa, nad1, narx_asv, &
                       ncmpra, ndrsa, ndrsa_asv, ndrsn, ndrsra, nerr, nessa, &
@@ -1478,7 +1473,7 @@ contains
         real(kind=8) axlksa(narx_asv,ntpr_asv,nsta_asv)
         real(kind=8) bpxa(ibpxa_asv,nxta_asv),cdrsa(ndrsa_asv),cessa(nessa_asv)
         real(kind=8) mwtspa(nsta_asv),zchara(nsta_asv)
-        integer j2,j3,jsolv,n,ncmptv,nsc,nx
+        integer jsolv,n,ncmptv,nsc,nx
 
         character(len=24) uphasv
         character(len=24), dimension(:), allocatable :: ucompv
@@ -1486,12 +1481,10 @@ contains
         ALLOCATE(ucompv(ikta_asv))
 
         ! The label below defines a loop for reading the blocks in the superblock.
-
         100 continue
 
         ! Read a species block.
         read (nad1) uphasv,ncmptv,jsolv
-        j3 = ilnobl(uphasv)
 
         ! Check for end of this current superblock.
         if (uphasv(1:8) .eq. uendit(1:8)) go to 200
@@ -1534,7 +1527,6 @@ contains
             end do
 
             ! The listed component was not found as a pure mineral species.
-            j2 = ilnobl(ucompv(n))
             nerr = nerr + 1
             130 continue
         end do
