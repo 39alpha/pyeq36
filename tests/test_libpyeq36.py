@@ -151,8 +151,8 @@ def test_read_data1_returns_data(natives: Natives) -> None:
     assert closed_unit(natives) == UNIT
     assert float(data.min_temperature) == 0.0
     assert data.max_temperature_range.tolist() == [0.0, 0.0]
-    assert int(data.nxrn1a) == -1
-    assert int(data.nxrn2a) == -1
+    assert int(data.first_solid_solution_index) == -1
+    assert int(data.last_solid_solution_index) == -1
 
 
 def test_read_data1_raises_if_open_sets_errno(natives: Natives) -> None:

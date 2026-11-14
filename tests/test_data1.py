@@ -73,22 +73,22 @@ def payload(mocker: MockerFixture) -> Data:
             dtype="|S48",
         ),
         species_molar_weights=np.array([1.0, *OTHER_WEIGHTS]),
-        cdrsa=np.array([0.0, *[1.0] * len(OTHER_NAMES)]),
+        reaction_coefficients=np.array([0.0, *[1.0] * len(OTHER_NAMES)]),
         charges=np.array([1.0, *[0.0] * len(OTHER_NAMES)]),
         volumes=np.zeros(1 + len(OTHER_NAMES)),
-        nessra=np.array([[1, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0]], dtype=np.int32),
-        nessa=np.array([1, 2], dtype=np.int32),
-        cessa=np.array([2.0, 1.0]),
-        narn1a=np.int32(1),
-        narn2a=np.int32(1),
-        nmrn1a=np.int32(2),
-        nmrn2a=np.int32(4),
-        nlrn1a=np.int32(5),
-        nlrn2a=np.int32(5),
-        ngrn1a=np.int32(6),
-        ngrn2a=np.int32(6),
-        nxrn1a=np.int32(7),
-        nxrn2a=np.int32(8),
+        composition_ranges=np.array([[1, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0]], dtype=np.int32),
+        composition_element_indices=np.array([1, 2], dtype=np.int32),
+        composition_counts=np.array([2.0, 1.0]),
+        first_aqueous_index=np.int32(1),
+        last_aqueous_index=np.int32(1),
+        first_mineral_index=np.int32(2),
+        last_mineral_index=np.int32(4),
+        first_liquid_index=np.int32(5),
+        last_liquid_index=np.int32(5),
+        first_gas_index=np.int32(6),
+        last_gas_index=np.int32(6),
+        first_solid_solution_index=np.int32(7),
+        last_solid_solution_index=np.int32(8),
     )
     _ = mocker.patch.object(data1, "read_data1", return_value=data)
     return data
@@ -231,7 +231,10 @@ def test_from_file_reads_solid_solutions(parsed: Data1) -> None:
 
 @pytest.mark.parametrize(
     ("category", "start", "stop", "previous_stop"),
-    [("minerals", "nmrn1a", "nmrn2a", "narn2a"), ("gases", "ngrn1a", "ngrn2a", "nlrn2a")],
+    [
+        ("minerals", "first_mineral_index", "last_mineral_index", "last_aqueous_index"),
+        ("gases", "first_gas_index", "last_gas_index", "last_liquid_index"),
+    ],
 )
 def test_from_file_returns_no_species_for_zero_range(
     payload: Data,
@@ -268,16 +271,16 @@ def test_from_file_returns_no_solid_solutions_for_zero_range(payload: Data) -> N
 
     @param payload The payload returned by the mocked `read_data1`
     """
-    num_species = int(payload.nlrn2a)
+    num_species = int(payload.last_liquid_index)
     payload.species_names = payload.species_names[:num_species]
     payload.species_molar_weights = payload.species_molar_weights[:num_species]
-    payload.cdrsa = payload.cdrsa[:num_species]
+    payload.reaction_coefficients = payload.reaction_coefficients[:num_species]
     payload.charges = payload.charges[:num_species]
     payload.volumes = payload.volumes[:num_species]
-    payload.ngrn1a = np.int32(0)
-    payload.ngrn2a = payload.nlrn2a
-    payload.nxrn1a = np.int32(0)
-    payload.nxrn2a = np.int32(0)
+    payload.first_gas_index = np.int32(0)
+    payload.last_gas_index = payload.last_liquid_index
+    payload.first_solid_solution_index = np.int32(0)
+    payload.last_solid_solution_index = np.int32(0)
     assert Data1.from_file("fake.d1").solid_solutions == {}
 
 
@@ -293,7 +296,7 @@ def test_from_file_preserves_nonzero_basis_species_volume(payload: Data) -> None
 
 
 @pytest.mark.parametrize(
-    ("nessa", "cessa", "expected"),
+    ("composition_element_indices", "composition_counts", "expected"),
     [
         ([0], [0.0], {}),
         ([0, 1], [0.0, 2.0], {"H": 2}),
@@ -303,21 +306,27 @@ def test_from_file_preserves_nonzero_basis_species_volume(payload: Data) -> None
 )
 def test_from_file_skips_null_element(
     payload: Data,
-    nessa: list[int],
-    cessa: list[float],
+    composition_element_indices: list[int],
+    composition_counts: list[float],
     expected: dict[str, int],
 ) -> None:
     """
     Ensure that `from_file` skips the null element (index 0) in a basis species' composition.
 
-    @param payload  The payload returned by the mocked `read_data1`
-    @param nessa    The element indices of the composition of `H+`
-    @param cessa    The element counts of the composition of `H+`
-    @param expected The expected composition of `H+`
+    @param payload                     The payload returned by the mocked `read_data1`
+    @param composition_element_indices The element indices of the composition of `H+`
+    @param composition_counts          The element counts of the composition of `H+`
+    @param expected                    The expected composition of `H+`
     """
-    payload.nessra = np.array([[1, 0, 0, 0, 0, 0], [len(nessa), 0, 0, 0, 0, 0]], dtype=np.int32)
-    payload.nessa = np.array(nessa, dtype=np.int32)
-    payload.cessa = np.array(cessa)
+    payload.composition_ranges = np.array(
+        [
+            [1, 0, 0, 0, 0, 0],
+            [len(composition_element_indices), 0, 0, 0, 0, 0],
+        ],
+        dtype=np.int32,
+    )
+    payload.composition_element_indices = np.array(composition_element_indices, dtype=np.int32)
+    payload.composition_counts = np.array(composition_counts)
     assert Data1.from_file("fake.d1").basis_species["H+"].composition == expected
 
 
@@ -338,10 +347,10 @@ def disable_species_ranges(payload: Data) -> None:
 
     @param payload The payload to modify
     """
-    payload.narn1a = np.int32(0)
-    payload.nmrn1a = np.int32(0)
-    payload.nlrn1a = np.int32(0)
-    payload.ngrn1a = np.int32(0)
+    payload.first_aqueous_index = np.int32(0)
+    payload.first_mineral_index = np.int32(0)
+    payload.first_liquid_index = np.int32(0)
+    payload.first_gas_index = np.int32(0)
 
 
 @pytest.mark.parametrize(
@@ -389,7 +398,7 @@ def test_from_file_rejects_non_float64_composition_counts(payload: Data) -> None
 
     @param payload The payload returned by the mocked `read_data1`
     """
-    payload.cessa = np.array([2, 1])
+    payload.composition_counts = np.array([2, 1])
     with pytest.raises(TypeError):
         _ = Data1.from_file("fake.d1")
 

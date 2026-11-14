@@ -204,9 +204,7 @@ class Data:
     by the number of entries actually read, so they may have trailing
     zero/blank entries. Index fields are 1-based, as in Fortran.
 
-    @todo The field names mix descriptive names with the original Fortran
-          names (`cdrsa`, `nessra`, `narn1a`, ...). Consider settling on one
-          convention.
+    @todo Rename this to something more descriptive.
     """
 
     ## The nominal minimum temperature (Celsius) of the data file (`tdamin`)
@@ -226,38 +224,39 @@ class Data:
     ## The molecular weights of the species (`mwtspa`)
     species_molar_weights: Array1D[np.float64]
     ## The flattened reaction coefficients of all species (`cdrsa`)
-    cdrsa: Array1D[np.float64]
+    reaction_coefficients: Array1D[np.float64]
     ## The electrical charges of the species (`zchara`)
     charges: Array1D[np.float64]
     ## The molar volumes of the species (`vosp0a`)
     volumes: Array1D[np.float64]
-    ## The 1-based start and end indices into `nessa` and `cessa` for each
-    ## species' elemental composition (`nessra`)
-    nessra: Array2D[np.int32]
+    ## The 1-based start and end indices into `composition_element_indices`
+    ## and `composition_counts` for each species' elemental composition
+    ## (`nessra`)
+    composition_ranges: Array2D[np.int32]
     ## The 1-based element indices of the species' compositions (`nessa`)
-    nessa: Array1D[np.int32]
+    composition_element_indices: Array1D[np.int32]
     ## The element counts of the species' compositions (`cessa`)
-    cessa: Array1D[np.float64]
-    ## The 1-based index of the first aqueous species
-    narn1a: np.int32
-    ## The 1-based index of the last aqueous species
-    narn2a: np.int32
-    ## The 1-based index of the first pure mineral
-    nmrn1a: np.int32
-    ## The 1-based index of the last pure mineral
-    nmrn2a: np.int32
-    ## The 1-based index of the first pure liquid
-    nlrn1a: np.int32
-    ## The 1-based index of the last pure liquid
-    nlrn2a: np.int32
-    ## The 1-based index of the first gas species
-    ngrn1a: np.int32
-    ## The 1-based index of the last gas species
-    ngrn2a: np.int32
-    ## The 1-based index of the first solid-solution end member
-    nxrn1a: np.int32
-    ## The 1-based index of the last solid-solution end member
-    nxrn2a: np.int32
+    composition_counts: Array1D[np.float64]
+    ## The 1-based index of the first aqueous species (`narn1a`)
+    first_aqueous_index: np.int32
+    ## The 1-based index of the last aqueous species (`narn2a`)
+    last_aqueous_index: np.int32
+    ## The 1-based index of the first pure mineral (`nmrn1a`)
+    first_mineral_index: np.int32
+    ## The 1-based index of the last pure mineral (`nmrn2a`)
+    last_mineral_index: np.int32
+    ## The 1-based index of the first pure liquid (`nlrn1a`)
+    first_liquid_index: np.int32
+    ## The 1-based index of the last pure liquid (`nlrn2a`)
+    last_liquid_index: np.int32
+    ## The 1-based index of the first gas species (`ngrn1a`)
+    first_gas_index: np.int32
+    ## The 1-based index of the last gas species (`ngrn2a`)
+    last_gas_index: np.int32
+    ## The 1-based index of the first solid-solution end member (`nxrn1a`)
+    first_solid_solution_index: np.int32
+    ## The 1-based index of the last solid-solution end member (`nxrn2a`)
+    last_solid_solution_index: np.int32
 
 
 def read_data1(filename: str | Path) -> Data:
@@ -621,22 +620,22 @@ def read_data1(filename: str | Path) -> Data:
         atomic_weights=atwta,
         species_names=uspeca,
         species_molar_weights=mwtspa,
-        cdrsa=cdrsa,
+        reaction_coefficients=cdrsa,
         charges=zchara,
         volumes=vosp0a,
-        nessra=nessra,
-        nessa=nessa,
-        cessa=cessa,
-        narn1a=np.int32(narn1a.value),
-        narn2a=np.int32(narn2a.value),
-        nmrn1a=np.int32(nmrn1a.value),
-        nmrn2a=np.int32(nmrn2a.value),
-        nlrn1a=np.int32(nlrn1a.value),
-        nlrn2a=np.int32(nlrn2a.value),
-        ngrn1a=np.int32(ngrn1a.value),
-        ngrn2a=np.int32(ngrn2a.value),
-        nxrn1a=np.int32(nxrn1a.value),
-        nxrn2a=np.int32(nxrn2a.value),
+        composition_ranges=nessra,
+        composition_element_indices=nessa,
+        composition_counts=cessa,
+        first_aqueous_index=np.int32(narn1a.value),
+        last_aqueous_index=np.int32(narn2a.value),
+        first_mineral_index=np.int32(nmrn1a.value),
+        last_mineral_index=np.int32(nmrn2a.value),
+        first_liquid_index=np.int32(nlrn1a.value),
+        last_liquid_index=np.int32(nlrn2a.value),
+        first_gas_index=np.int32(ngrn1a.value),
+        last_gas_index=np.int32(ngrn2a.value),
+        first_solid_solution_index=np.int32(nxrn1a.value),
+        last_solid_solution_index=np.int32(nxrn2a.value),
     )
 
 

@@ -124,7 +124,7 @@ def test_reads_aqueous_species(data: Data, d1f: D1F) -> None:
     @param data The data read
     @param d1f  The reference values
     """
-    assert_species(data, data.narn1a, data.narn2a, d1f.aqueous)
+    assert_species(data, data.first_aqueous_index, data.last_aqueous_index, d1f.aqueous)
 
 
 def test_reads_minerals(data: Data, d1f: D1F) -> None:
@@ -134,7 +134,7 @@ def test_reads_minerals(data: Data, d1f: D1F) -> None:
     @param data The data read
     @param d1f  The reference values
     """
-    assert_species(data, data.nmrn1a, data.nmrn2a, d1f.minerals)
+    assert_species(data, data.first_mineral_index, data.last_mineral_index, d1f.minerals)
 
 
 def test_reads_water_as_only_liquid(data: Data, d1f: D1F) -> None:
@@ -144,7 +144,7 @@ def test_reads_water_as_only_liquid(data: Data, d1f: D1F) -> None:
     @param data The data read
     @param d1f  The reference values
     """
-    assert_species(data, data.nlrn1a, data.nlrn2a, d1f.aqueous[:1])
+    assert_species(data, data.first_liquid_index, data.last_liquid_index, d1f.aqueous[:1])
 
 
 def test_reads_gases(data: Data, d1f: D1F) -> None:
@@ -154,7 +154,7 @@ def test_reads_gases(data: Data, d1f: D1F) -> None:
     @param data The data read
     @param d1f  The reference values
     """
-    assert_species(data, data.ngrn1a, data.ngrn2a, d1f.gases)
+    assert_species(data, data.first_gas_index, data.last_gas_index, d1f.gases)
 
 
 def test_reads_solid_solution_end_members(data: Data, d1f: D1F) -> None:
@@ -164,7 +164,7 @@ def test_reads_solid_solution_end_members(data: Data, d1f: D1F) -> None:
     @param data The data read
     @param d1f  The reference values
     """
-    species = species_range(data.nxrn1a, data.nxrn2a)
+    species = species_range(data.first_solid_solution_index, data.last_solid_solution_index)
     pairs = [
         (bytes(name)[:NAME_WIDTH].decode("ascii").strip(), bytes(name)[NAME_WIDTH:].decode("ascii").strip())
         for name in data.species_names[species]

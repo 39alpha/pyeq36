@@ -370,8 +370,9 @@ class Data1:
           dictionary if either index is non-positive), keeping the first 24
           characters of each name;
         - the basis species are the leading species whose corresponding entry
-          of `cdrsa` is zero, with their compositions taken from `nessra`,
-          `nessa` and `cessa`, and a zero volume treated as unknown; entries
+          of `reaction_coefficients` is zero, with their compositions taken
+          from `composition_ranges`, `composition_element_indices` and
+          `composition_counts`, and a zero volume treated as unknown; entries
           for the null element (index 0), which EQ3/6 assigns to species
           composed of no elements (e.g. `e-`), are skipped, leaving such a
           species with an empty composition;
@@ -464,16 +465,16 @@ class Data1:
                 result[name] = factory(name=name, molar_mass=weight)
             return result
 
-        aqueous_species = _make_species(data.narn1a, data.narn2a, AqueousSpecies)
-        minerals = _make_species(data.nmrn1a, data.nmrn2a, Mineral)
-        liquids = _make_species(data.nlrn1a, data.nlrn2a, Liquid)
-        gases = _make_species(data.ngrn1a, data.ngrn2a, Gas)
+        aqueous_species = _make_species(data.first_aqueous_index, data.last_aqueous_index, AqueousSpecies)
+        minerals = _make_species(data.first_mineral_index, data.last_mineral_index, Mineral)
+        liquids = _make_species(data.first_liquid_index, data.last_liquid_index, Liquid)
+        gases = _make_species(data.first_gas_index, data.last_gas_index, Gas)
 
         basis_species: dict[str, BasisSpecies] = {}
         for i, (raw_species_name_obj, c, charge, volume) in enumerate(
             zip(
                 cast("list[object]", list(data.species_names)),
-                data.cdrsa,
+                data.reaction_coefficients,
                 data.charges,
                 data.volumes,
                 strict=False,
@@ -485,10 +486,10 @@ class Data1:
             if c != 0:
                 break
             name = str(raw_species_name_obj[0:24].strip(), "ascii")
-            a = int(cast("np.int32", data.nessra[0, i]))
-            b = int(cast("np.int32", data.nessra[1, i]))
-            indices = cast("Array1D[np.int32]", data.nessa[a - 1 : b])
-            counts = cast("list[object]", list(data.cessa[a - 1 : b]))
+            a = int(cast("np.int32", data.composition_ranges[0, i]))
+            b = int(cast("np.int32", data.composition_ranges[1, i]))
+            indices = cast("Array1D[np.int32]", data.composition_element_indices[a - 1 : b])
+            counts = cast("list[object]", list(data.composition_counts[a - 1 : b]))
             selected = [
                 (element_names[jdx - 1], count)
                 for idx, count in zip(indices, counts, strict=True)
@@ -514,7 +515,7 @@ class Data1:
             )
 
         solid_solutions: dict[str, SolidSolution] = {}
-        start, stop = int(data.nxrn1a), int(data.nxrn2a)
+        start, stop = int(data.first_solid_solution_index), int(data.last_solid_solution_index)
         for i in range(start - 1, stop) if start > 0 and stop > 0 else ():
             line = cast("object", data.species_names[i])
             if not isinstance(line, bytes):
