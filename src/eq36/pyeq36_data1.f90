@@ -486,13 +486,8 @@ contains
     !! @param[out] vosp0a    The molar volumes of the species, which are not read, and so are zero
     !! @param[out] zchara    The electrical charges of the species
     !! @param[out] errno     The number of errors found while reading the species, solid solutions
-    !!                       and activity coefficient model parameters; set to 1 if water is not the
-    !!                       first aqueous species
-    !!
-    !! @todo If water is not the first aqueous species, `errno` is set to 1, discarding any count of
-    !!       earlier errors, and reading continues.
-    !! @todo The loops over the first lines of the title, and the `ilnobl` calls within them, have
-    !!       no effect; they are remnants of writing the title to the screen and output files.
+    !!                       and activity coefficient model parameters, including one if water is
+    !!                       not the first aqueous species
     subroutine indata(nad1, aadh, aadhh, aadhv, aaphi, abdh, abdhh, abdhv, abdot, &
                       abdoth, abdotv, adadhh, adadhv, adbdhh, adbdhv, adbdth, &
                       adbdtv, adhfe, adhfsa, advfe, advfsa, amua, aprehw, apresg, &
@@ -575,9 +570,7 @@ contains
 
         real(8), dimension(:), allocatable :: cdrsv,cessv
 
-        integer ipc,j2,j3,n,nc,ndrsn,nessn,nmax,nn,np,ns,nsc,ntpr,nwatra
-
-        ! integer ilnobl
+        integer ipc,n,nc,ndrsn,nessn,nmax,np,ns,nsc,ntpr,nwatra
 
         logical qx
 
@@ -654,24 +647,6 @@ contains
             if (utitld(n)(1:8) .eq. uterm(1:8)) go to 140
         end do
         140 continue
-
-        ! Write the first 5 lines of the data file title to the screen file.
-        nn = min(ntitld,5)
-        do n = 1,nn
-            if (utitld(n)(1:8) .eq. uterm(1:8)) go to 150
-            j2 = ilnobl(utitld(n))
-            j2 = min(j2,74)
-        end do
-        150 continue
-
-        ! Write the complete data file title, less terminator, if any, to the output
-        ! file.
-        do n = 1,ntitld
-            if (utitld(n)(1:8) .eq. uterm(1:8)) go to 160
-            j2 = ilnobl(utitld(n))
-            j2 = min(j2,74)
-        end do
-        160 continue
 
         ! Search the data file title for the usual identifying three-letter
         ! keystring (e.g., com, hmw, etc.).
@@ -1011,12 +986,7 @@ contains
         if (uspeca(narn1a)(1:24) .eq. uwater(1:24)) nwatra = 1
 
         if (nwatra .eq. 0) then
-            j3 = ilnobl(uwater)
-            errno = 1
-            ! 1150   format(/' * Error - (EQLIB/indata) The species ',
-            !     $  /7x,a,' (',a,') must be listed on the',
-            !     $  /7x,'data file as the first species in its phase.')
-            !        go to 999
+            errno = errno + 1
         end if
 
         ! Process the pure minerals superblock. Each pure mineral is both a species
@@ -1142,15 +1112,6 @@ contains
                        nmuta_asv, nmuxa, nslta, nslta_asv, nslxa, nsta_asv, &
                        palpaa, uspeca, zchara)
         end if
-
-        ! The following is a bit of nonsense so compiler warnings will not be
-        ! generated saying that ux80, ustr, ustr2, and ustr3 are not used (they are
-        ! all used to read unused data).
-        ux80(1:56) = ux56
-        ustr3 = ux80(1:8)
-        ustr = ustr2
-        ustr2 = ustr3
-        ustr3 = ustr
 
         DEALLOCATE(cessv)
         DEALLOCATE(uessv)
