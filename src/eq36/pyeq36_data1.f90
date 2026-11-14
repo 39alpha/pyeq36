@@ -46,19 +46,15 @@ contains
     !! @param[out] logical_unit The logical unit on which the file is opened
     !! @param[out] errno        404 if the file does not exist, 403 if it could not be opened, and
     !!                          unchanged otherwise
-    !!
-    !! @todo `errno` is `intent(out)` but is not set on success, so its value is then undefined;
-    !!       callers must initialize it (as `eq36.libpyeq36.read_data1` does) and rely on the
-    !!       compiler leaving it untouched. Consider setting it to 0.
-    !! @todo The `formatted` status queried by `inquire` (into `uformo`) is unused.
     subroutine openin(filename, logical_unit, errno)
         character(*), intent(in) :: filename
         integer, intent(out) :: logical_unit, errno
 
         logical exists
-        character(len=8) uformo
 
-        inquire(file=filename, exist=exists, formatted=uformo)
+        errno = 0
+
+        inquire(file=filename, exist=exists)
         if (.not. exists) then
             errno = 404
             go to 999
