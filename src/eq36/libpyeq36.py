@@ -13,6 +13,7 @@ original error.
 
 from __future__ import annotations
 
+import errno
 import os
 from ctypes import CDLL, POINTER, byref, c_bool, c_char_p, c_double, c_int, c_size_t, create_string_buffer
 from dataclasses import dataclass
@@ -271,6 +272,15 @@ _read_body = _load_symbol(
 )
 
 
+class Data1Error(ValueError):
+    """
+    An error indicating that the contents of a data1 file are invalid.
+
+    It is a `ValueError`: the file exists and can be opened, but is not a
+    valid data1 file.
+    """
+
+
 @dataclass
 class Data:
     """
@@ -351,29 +361,29 @@ def read_data1(filename: str | Path) -> Data:
 
     @return The parsed data
 
-    @throws RuntimeError if the call to open the file raises an exception or
-            reports a non-zero error code (e.g. the file does not exist)
-    @throws RuntimeError if the call to read the header raises an exception or
-            reports a non-zero error code
-    @throws RuntimeError if the call to read the body raises an exception or
-            reports a non-zero error code
+    @throws FileNotFoundError if the file does not exist
+    @throws OSError    if the file exists but cannot be opened, with
+            `errno.EIO`
+    @throws Data1Error if the header cannot be read, i.e. the file is not a
+            data1 file
+    @throws Data1Error if errors are encountered while reading the body
+    @throws ctypes.ArgumentError if a native subroutine is called with an
+            invalid argument, which indicates a bug in this module
 
     @todo This function is long enough to need `noqa: PLR0915`; consider
           splitting allocation and the `indata` call into helpers.
     """
     fname = os.fsencode(filename)
     data1 = c_int(0)
-    errno = c_int(0)
+    errnum = c_int(0)
 
-    try:
-        _open_data1(fname, byref(data1), byref(errno), len(fname))
-    except Exception as e:
-        msg = "failed to open data1 file"
-        raise RuntimeError(msg) from e
+    _open_data1(fname, byref(data1), byref(errnum), len(fname))
 
-    if errno.value != 0:
+    if errnum.value != 0:
         msg = "failed to open data1 file"
-        raise RuntimeError(msg)
+        if errnum.value == 404:  # noqa: PLR2004
+            raise FileNotFoundError(errno.ENOENT, msg, os.fspath(filename))
+        raise OSError(errno.EIO, msg, os.fspath(filename))
 
     try:
         ikta_asv = c_int(-1)
@@ -435,39 +445,35 @@ def read_data1(filename: str | Path) -> Data:
         iaqsla = c_int(-1)
         udatfi = create_string_buffer(8)
 
-        try:
-            _read_header(
-                data1,
-                byref(ikta_asv),
-                byref(ipbt_asv),
-                byref(ipch_asv),
-                byref(ipcv_asv),
-                byref(jpfc_asv),
-                byref(napa_asv),
-                byref(narx_asv),
-                byref(nata_asv),
-                byref(nbta_asv),
-                byref(ncta_asv),
-                byref(ngta_asv),
-                byref(nlta_asv),
-                byref(nmta_asv),
-                byref(npta_asv),
-                byref(nmuta_asv),
-                byref(nslta_asv),
-                byref(nsta_asv),
-                byref(ntid_asv),
-                byref(ntpr_asv),
-                byref(nxta_asv),
-                udakey,
-                byref(errno),
-            )
-        except Exception as e:
-            msg = "failed to read data1 header"
-            raise RuntimeError(msg) from e
+        _read_header(
+            data1,
+            byref(ikta_asv),
+            byref(ipbt_asv),
+            byref(ipch_asv),
+            byref(ipcv_asv),
+            byref(jpfc_asv),
+            byref(napa_asv),
+            byref(narx_asv),
+            byref(nata_asv),
+            byref(nbta_asv),
+            byref(ncta_asv),
+            byref(ngta_asv),
+            byref(nlta_asv),
+            byref(nmta_asv),
+            byref(npta_asv),
+            byref(nmuta_asv),
+            byref(nslta_asv),
+            byref(nsta_asv),
+            byref(ntid_asv),
+            byref(ntpr_asv),
+            byref(nxta_asv),
+            udakey,
+            byref(errnum),
+        )
 
-        if errno.value != 0:
-            msg = "failed to read data1 header"
-            raise RuntimeError(msg)
+        if errnum.value != 0:
+            msg = f"not a data1 file: {os.fspath(filename)}"
+            raise Data1Error(msg)
 
         # These are hardcoded values taken from EQ3/6
         iapxa_asv = c_int(30)
@@ -551,141 +557,137 @@ def read_data1(filename: str | Path) -> Data:
         palpaa = np.zeros((ipbt_asv.value, napa_asv.value), dtype=np.float64, order="F")
         cco2 = np.zeros(5, dtype=np.float64, order="F")
 
-        try:
-            _read_body(
-                byref(data1),
-                aadh.ctypes.data_as(POINTER(c_double)),
-                aadhh.ctypes.data_as(POINTER(c_double)),
-                aadhv.ctypes.data_as(POINTER(c_double)),
-                aaphi.ctypes.data_as(POINTER(c_double)),
-                abdh.ctypes.data_as(POINTER(c_double)),
-                abdhh.ctypes.data_as(POINTER(c_double)),
-                abdhv.ctypes.data_as(POINTER(c_double)),
-                abdot.ctypes.data_as(POINTER(c_double)),
-                abdoth.ctypes.data_as(POINTER(c_double)),
-                abdotv.ctypes.data_as(POINTER(c_double)),
-                adadhh.ctypes.data_as(POINTER(c_double)),
-                adadhv.ctypes.data_as(POINTER(c_double)),
-                adbdhh.ctypes.data_as(POINTER(c_double)),
-                adbdhv.ctypes.data_as(POINTER(c_double)),
-                adbdth.ctypes.data_as(POINTER(c_double)),
-                adbdtv.ctypes.data_as(POINTER(c_double)),
-                adhfe.ctypes.data_as(POINTER(c_double)),
-                adhfsa.ctypes.data_as(POINTER(c_double)),
-                advfe.ctypes.data_as(POINTER(c_double)),
-                advfsa.ctypes.data_as(POINTER(c_double)),
-                amua.ctypes.data_as(POINTER(c_double)),
-                aprehw.ctypes.data_as(POINTER(c_double)),
-                apresg.ctypes.data_as(POINTER(c_double)),
-                apxa.ctypes.data_as(POINTER(c_double)),
-                aslma.ctypes.data_as(POINTER(c_double)),
-                atwta.ctypes.data_as(POINTER(c_double)),
-                axhfe.ctypes.data_as(POINTER(c_double)),
-                axhfsa.ctypes.data_as(POINTER(c_double)),
-                axlke.ctypes.data_as(POINTER(c_double)),
-                axlksa.ctypes.data_as(POINTER(c_double)),
-                axvfe.ctypes.data_as(POINTER(c_double)),
-                axvfsa.ctypes.data_as(POINTER(c_double)),
-                azeroa.ctypes.data_as(POINTER(c_double)),
-                bpxa.ctypes.data_as(POINTER(c_double)),
-                cco2.ctypes.data_as(POINTER(c_double)),
-                cdrsa.ctypes.data_as(POINTER(c_double)),
-                cessa.ctypes.data_as(POINTER(c_double)),
-                byref(iapxa_asv),
-                iapxta.ctypes.data_as(POINTER(c_int)),
-                byref(iaqsla),
-                byref(ibpxa_asv),
-                ibpxta.ctypes.data_as(POINTER(c_int)),
-                byref(ielam),
-                byref(igas),
-                byref(ikta_asv),
-                insgfa.ctypes.data_as(POINTER(c_int)),
-                byref(ipbt_asv),
-                byref(ipch),
-                byref(ipch_asv),
-                byref(ipcv),
-                byref(ipcv_asv),
-                byref(ixrn1a),
-                byref(ixrn2a),
-                byref(jpdblo),
-                byref(jpfc_asv),
-                byref(jptffl),
-                jsola.ctypes.data_as(POINTER(c_int)),
-                mwtspa.ctypes.data_as(POINTER(c_double)),
-                nalpaa.ctypes.data_as(POINTER(c_int)),
-                byref(napa_asv),
-                byref(napta),
-                byref(narn1a),
-                byref(narn2a),
-                byref(narx_asv),
-                narxt.ctypes.data_as(POINTER(c_int)),
-                byref(nata),
-                byref(nata_asv),
-                nbaspa.ctypes.data_as(POINTER(c_int)),
-                byref(nbta),
-                byref(nbta_asv),
-                byref(nbtafd),
-                byref(nbta1_asv),
-                ncmpra.ctypes.data_as(POINTER(c_int)),
-                byref(ncta),
-                byref(ncta_asv),
-                ndrsa.ctypes.data_as(POINTER(c_int)),
-                byref(ndrsa_asv),
-                ndrsra.ctypes.data_as(POINTER(c_int)),
-                nessa.ctypes.data_as(POINTER(c_int)),
-                byref(nessa_asv),
-                nessra.ctypes.data_as(POINTER(c_int)),
-                byref(ngrn1a),
-                byref(ngrn2a),
-                byref(ngta),
-                byref(nlrn1a),
-                byref(nlrn2a),
-                byref(nlta),
-                byref(nmrn1a),
-                byref(nmrn2a),
-                byref(nmta),
-                byref(nmuta),
-                byref(nmuta_asv),
-                nmuxa.ctypes.data_as(POINTER(c_int)),
-                byref(npta),
-                byref(npta_asv),
-                byref(nslta),
-                byref(nslta_asv),
-                nslxa.ctypes.data_as(POINTER(c_int)),
-                byref(nsta),
-                byref(nsta_asv),
-                byref(ntid_asv),
-                byref(ntitld),
-                byref(ntpr_asv),
-                byref(ntprt),
-                byref(nxrn1a),
-                byref(nxrn2a),
-                byref(nxta),
-                byref(nxta_asv),
-                qclnsa.ctypes.data_as(POINTER(c_bool)),
-                palpaa.ctypes.data_as(POINTER(c_double)),
-                byref(tdamax),
-                byref(tdamin),
-                tempcu.ctypes.data_as(POINTER(c_double)),
-                ubasp.ctypes.data_as(POINTER(c_char_p)),
-                udakey,
-                udatfi,
-                uelema.ctypes.data_as(POINTER(c_char_p)),
-                uspeca.ctypes.data_as(POINTER(c_char_p)),
-                uphasa.ctypes.data_as(POINTER(c_char_p)),
-                uptypa.ctypes.data_as(POINTER(c_char_p)),
-                utitld.ctypes.data_as(POINTER(c_char_p)),
-                vosp0a.ctypes.data_as(POINTER(c_double)),
-                zchara.ctypes.data_as(POINTER(c_double)),
-                byref(errno),
-            )
-        except Exception as e:
-            msg = "failed to read data1 body"
-            raise RuntimeError(msg) from e
+        _read_body(
+            byref(data1),
+            aadh.ctypes.data_as(POINTER(c_double)),
+            aadhh.ctypes.data_as(POINTER(c_double)),
+            aadhv.ctypes.data_as(POINTER(c_double)),
+            aaphi.ctypes.data_as(POINTER(c_double)),
+            abdh.ctypes.data_as(POINTER(c_double)),
+            abdhh.ctypes.data_as(POINTER(c_double)),
+            abdhv.ctypes.data_as(POINTER(c_double)),
+            abdot.ctypes.data_as(POINTER(c_double)),
+            abdoth.ctypes.data_as(POINTER(c_double)),
+            abdotv.ctypes.data_as(POINTER(c_double)),
+            adadhh.ctypes.data_as(POINTER(c_double)),
+            adadhv.ctypes.data_as(POINTER(c_double)),
+            adbdhh.ctypes.data_as(POINTER(c_double)),
+            adbdhv.ctypes.data_as(POINTER(c_double)),
+            adbdth.ctypes.data_as(POINTER(c_double)),
+            adbdtv.ctypes.data_as(POINTER(c_double)),
+            adhfe.ctypes.data_as(POINTER(c_double)),
+            adhfsa.ctypes.data_as(POINTER(c_double)),
+            advfe.ctypes.data_as(POINTER(c_double)),
+            advfsa.ctypes.data_as(POINTER(c_double)),
+            amua.ctypes.data_as(POINTER(c_double)),
+            aprehw.ctypes.data_as(POINTER(c_double)),
+            apresg.ctypes.data_as(POINTER(c_double)),
+            apxa.ctypes.data_as(POINTER(c_double)),
+            aslma.ctypes.data_as(POINTER(c_double)),
+            atwta.ctypes.data_as(POINTER(c_double)),
+            axhfe.ctypes.data_as(POINTER(c_double)),
+            axhfsa.ctypes.data_as(POINTER(c_double)),
+            axlke.ctypes.data_as(POINTER(c_double)),
+            axlksa.ctypes.data_as(POINTER(c_double)),
+            axvfe.ctypes.data_as(POINTER(c_double)),
+            axvfsa.ctypes.data_as(POINTER(c_double)),
+            azeroa.ctypes.data_as(POINTER(c_double)),
+            bpxa.ctypes.data_as(POINTER(c_double)),
+            cco2.ctypes.data_as(POINTER(c_double)),
+            cdrsa.ctypes.data_as(POINTER(c_double)),
+            cessa.ctypes.data_as(POINTER(c_double)),
+            byref(iapxa_asv),
+            iapxta.ctypes.data_as(POINTER(c_int)),
+            byref(iaqsla),
+            byref(ibpxa_asv),
+            ibpxta.ctypes.data_as(POINTER(c_int)),
+            byref(ielam),
+            byref(igas),
+            byref(ikta_asv),
+            insgfa.ctypes.data_as(POINTER(c_int)),
+            byref(ipbt_asv),
+            byref(ipch),
+            byref(ipch_asv),
+            byref(ipcv),
+            byref(ipcv_asv),
+            byref(ixrn1a),
+            byref(ixrn2a),
+            byref(jpdblo),
+            byref(jpfc_asv),
+            byref(jptffl),
+            jsola.ctypes.data_as(POINTER(c_int)),
+            mwtspa.ctypes.data_as(POINTER(c_double)),
+            nalpaa.ctypes.data_as(POINTER(c_int)),
+            byref(napa_asv),
+            byref(napta),
+            byref(narn1a),
+            byref(narn2a),
+            byref(narx_asv),
+            narxt.ctypes.data_as(POINTER(c_int)),
+            byref(nata),
+            byref(nata_asv),
+            nbaspa.ctypes.data_as(POINTER(c_int)),
+            byref(nbta),
+            byref(nbta_asv),
+            byref(nbtafd),
+            byref(nbta1_asv),
+            ncmpra.ctypes.data_as(POINTER(c_int)),
+            byref(ncta),
+            byref(ncta_asv),
+            ndrsa.ctypes.data_as(POINTER(c_int)),
+            byref(ndrsa_asv),
+            ndrsra.ctypes.data_as(POINTER(c_int)),
+            nessa.ctypes.data_as(POINTER(c_int)),
+            byref(nessa_asv),
+            nessra.ctypes.data_as(POINTER(c_int)),
+            byref(ngrn1a),
+            byref(ngrn2a),
+            byref(ngta),
+            byref(nlrn1a),
+            byref(nlrn2a),
+            byref(nlta),
+            byref(nmrn1a),
+            byref(nmrn2a),
+            byref(nmta),
+            byref(nmuta),
+            byref(nmuta_asv),
+            nmuxa.ctypes.data_as(POINTER(c_int)),
+            byref(npta),
+            byref(npta_asv),
+            byref(nslta),
+            byref(nslta_asv),
+            nslxa.ctypes.data_as(POINTER(c_int)),
+            byref(nsta),
+            byref(nsta_asv),
+            byref(ntid_asv),
+            byref(ntitld),
+            byref(ntpr_asv),
+            byref(ntprt),
+            byref(nxrn1a),
+            byref(nxrn2a),
+            byref(nxta),
+            byref(nxta_asv),
+            qclnsa.ctypes.data_as(POINTER(c_bool)),
+            palpaa.ctypes.data_as(POINTER(c_double)),
+            byref(tdamax),
+            byref(tdamin),
+            tempcu.ctypes.data_as(POINTER(c_double)),
+            ubasp.ctypes.data_as(POINTER(c_char_p)),
+            udakey,
+            udatfi,
+            uelema.ctypes.data_as(POINTER(c_char_p)),
+            uspeca.ctypes.data_as(POINTER(c_char_p)),
+            uphasa.ctypes.data_as(POINTER(c_char_p)),
+            uptypa.ctypes.data_as(POINTER(c_char_p)),
+            utitld.ctypes.data_as(POINTER(c_char_p)),
+            vosp0a.ctypes.data_as(POINTER(c_double)),
+            zchara.ctypes.data_as(POINTER(c_double)),
+            byref(errnum),
+        )
 
-        if errno.value != 0:
-            msg = "failed to read data1 body"
-            raise RuntimeError(msg)
+        if errnum.value != 0:
+            msg = f"failed to read data1 body: {os.fspath(filename)}"
+            raise Data1Error(msg)
     finally:
         _close_data1(data1)
 
@@ -718,5 +720,6 @@ def read_data1(filename: str | Path) -> Data:
 
 __all__ = [
     "Data",
+    "Data1Error",
     "read_data1",
 ]

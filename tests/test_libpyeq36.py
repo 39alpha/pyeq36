@@ -8,7 +8,9 @@ cleanup of `read_data1` can be tested without a data1 file.
 
 from __future__ import annotations
 
+import errno
 import os
+from ctypes import ArgumentError
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
@@ -16,7 +18,7 @@ from typing import TYPE_CHECKING, Protocol, cast
 import pytest
 
 from eq36 import libpyeq36
-from eq36.libpyeq36 import read_data1
+from eq36.libpyeq36 import Data1Error, read_data1
 
 if TYPE_CHECKING:
     from ctypes import c_int
@@ -157,86 +159,88 @@ def test_read_data1_returns_data(natives: Natives) -> None:
     assert int(data.last_solid_solution_index) == -1
 
 
-def test_read_data1_raises_if_open_sets_errno(natives: Natives) -> None:
+@pytest.mark.parametrize(
+    ("errnum", "error_type", "error_code"),
+    [
+        (404, FileNotFoundError, errno.ENOENT),
+        (403, OSError, errno.EIO),
+        (1, OSError, errno.EIO),
+    ],
+)
+def test_read_data1_raises_if_open_sets_errno(
+    natives: Natives,
+    errnum: int,
+    error_type: type[OSError],
+    error_code: int,
+) -> None:
     """
-    Ensure that `read_data1` raises a `RuntimeError` if `_open_data1` sets `errno`.
+    Ensure that `read_data1` raises an `OSError`, naming the file, if `_open_data1` sets `errno`, and does not close it.
 
-    @param natives The mocked native subroutines
+    `openin` sets `errno` to 404 if the file does not exist and 403 if it
+    exists but cannot be opened.
+
+    @param natives    The mocked native subroutines
+    @param errnum     The error code set by `_open_data1`
+    @param error_type The exact type of the error expected
+    @param error_code The `errno` of the error expected
     """
 
-    def side_effect(fname: bytes, data1: object, errno: object, flen: int) -> None:
-        open_side_effect(fname, data1, errno, flen)
-        set_ref(errno, 1)
+    def side_effect(fname: bytes, data1: object, err: object, flen: int) -> None:
+        open_side_effect(fname, data1, err, flen)
+        set_ref(err, errnum)
 
     natives.open_data1.side_effect = side_effect
-    with pytest.raises(RuntimeError, match="failed to open data1 file"):
+    with pytest.raises(OSError, match="failed to open data1 file") as excinfo:
         _ = read_data1("fake.d1")
 
-    assert natives.open_data1.call_args.args[0] == b"fake.d1"
-    assert natives.open_data1.call_args.args[3] == len(b"fake.d1")
+    assert type(excinfo.value) is error_type
+    assert excinfo.value.errno == error_code
+    assert excinfo.value.filename == "fake.d1"
     natives.read_header.assert_not_called()
     natives.close_data1.assert_not_called()
 
 
-@pytest.mark.parametrize("error", [RuntimeError("open exploded"), OSError("open os error")])
-def test_read_data1_wraps_open_exception(natives: Natives, error: Exception) -> None:
+def test_read_data1_propagates_open_exception(natives: Natives) -> None:
     """
-    Ensure that `read_data1` wraps exceptions raised by `_open_data1`, and does not close the file.
+    Ensure that `read_data1` does not wrap exceptions raised by `_open_data1`, and does not close the file.
 
     @param natives The mocked native subroutines
-    @param error   The exception raised by `_open_data1`
     """
+    error = ArgumentError("open exploded")
     natives.open_data1.side_effect = error
-    with pytest.raises(RuntimeError, match="failed to open data1 file") as excinfo:
+    with pytest.raises(ArgumentError) as excinfo:
         _ = read_data1("broken-open.d1")
 
-    natives.open_data1.assert_called_once()
+    assert excinfo.value is error
     natives.read_header.assert_not_called()
     natives.close_data1.assert_not_called()
-    assert excinfo.value.__cause__ is error
 
 
 def test_read_data1_raises_if_header_sets_errno(natives: Natives) -> None:
     """
-    Ensure that `read_data1` raises a `RuntimeError` if `_read_header` sets `errno`, and closes the file.
+    Ensure that `read_data1` raises a `Data1Error`, naming the file, if `_read_header` sets `errno`, and closes it.
+
+    `indath` sets `errno` to 420 if the file is not a data1 file.
 
     @param natives The mocked native subroutines
     """
 
     def side_effect(*args: object) -> None:
-        set_ref(args[-1], 3)
+        set_ref(args[-1], 420)
 
     natives.read_header.side_effect = side_effect
-    with pytest.raises(RuntimeError, match="failed to read data1 header"):
+    with pytest.raises(Data1Error, match=r"not a data1 file: fake\.d1"):
         _ = read_data1("fake.d1")
 
-    natives.open_data1.assert_called_once()
-    natives.read_header.assert_called_once()
     natives.read_body.assert_not_called()
     assert closed_unit(natives) == UNIT
-
-
-def test_read_data1_wraps_header_exception(natives: Natives) -> None:
-    """
-    Ensure that `read_data1` wraps exceptions raised by `_read_header`, and closes the file.
-
-    @param natives The mocked native subroutines
-    """
-    error = RuntimeError("header exploded")
-    natives.read_header.side_effect = error
-    with pytest.raises(RuntimeError, match="failed to read data1 header") as excinfo:
-        _ = read_data1("bad-header.d1")
-
-    natives.open_data1.assert_called_once()
-    natives.read_header.assert_called_once()
-    natives.read_body.assert_not_called()
-    assert closed_unit(natives) == UNIT
-    assert excinfo.value.__cause__ is error
 
 
 def test_read_data1_raises_if_body_sets_errno(natives: Natives) -> None:
     """
-    Ensure that `read_data1` raises a `RuntimeError` if `_read_body` sets `errno`, and closes the file.
+    Ensure that `read_data1` raises a `Data1Error`, naming the file, if `_read_body` sets `errno`, and closes it.
+
+    `indata` sets `errno` to the number of errors encountered.
 
     @param natives The mocked native subroutines
     """
@@ -245,31 +249,32 @@ def test_read_data1_raises_if_body_sets_errno(natives: Natives) -> None:
         set_ref(args[-1], 99)
 
     natives.read_body.side_effect = side_effect
-    with pytest.raises(RuntimeError, match="failed to read data1 body"):
+    with pytest.raises(Data1Error, match=r"failed to read data1 body: errno-after-body\.d1"):
         _ = read_data1("errno-after-body.d1")
 
-    natives.open_data1.assert_called_once()
-    natives.read_header.assert_called_once()
-    natives.read_body.assert_called_once()
     assert closed_unit(natives) == UNIT
 
 
-def test_read_data1_wraps_body_exception(natives: Natives) -> None:
+@pytest.mark.parametrize("subroutine", ["read_header", "read_body"])
+def test_read_data1_propagates_read_exception(natives: Natives, subroutine: str) -> None:
     """
-    Ensure that `read_data1` wraps exceptions raised by `_read_body`, and closes the file.
+    Ensure that `read_data1` does not wrap exceptions raised while reading, and closes the file.
 
-    @param natives The mocked native subroutines
+    @param natives    The mocked native subroutines
+    @param subroutine The name of the mocked subroutine which raises
     """
-    error = RuntimeError("body exploded")
-    natives.read_body.side_effect = error
-    with pytest.raises(RuntimeError, match="failed to read data1 body") as excinfo:
-        _ = read_data1("bad-body.d1")
+    error = ArgumentError(f"{subroutine} exploded")
+    cast("MagicMock", getattr(natives, subroutine)).side_effect = error
+    with pytest.raises(ArgumentError) as excinfo:
+        _ = read_data1("bad.d1")
 
-    natives.open_data1.assert_called_once()
-    natives.read_header.assert_called_once()
-    natives.read_body.assert_called_once()
+    assert excinfo.value is error
     assert closed_unit(natives) == UNIT
-    assert excinfo.value.__cause__ is error
+
+
+def test_data1_error_is_a_value_error() -> None:
+    """Ensure that a `Data1Error` is caught as a `ValueError`."""
+    assert issubclass(Data1Error, ValueError)
 
 
 @pytest.mark.parametrize("filename", ["ok.d1", "μ.d1", Path("μ.d1")])

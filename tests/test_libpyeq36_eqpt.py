@@ -194,3 +194,16 @@ def test_reads_file_with_non_ascii_path(tmp_path: Path, database: str, data: Dat
 
     for field in dataclasses.fields(Data):
         np.testing.assert_array_equal(getattr(copied, field.name), getattr(data, field.name), err_msg=field.name)
+
+
+def test_raises_file_not_found_for_missing_file(tmp_path: Path) -> None:
+    """
+    Ensure that reading a data1 file which does not exist raises a `FileNotFoundError`, naming the file.
+
+    @param tmp_path A temporary directory in which the file does not exist
+    """
+    path = tmp_path / "missing.d1"
+    with pytest.raises(FileNotFoundError) as excinfo:
+        _ = read_data1(path)
+
+    assert excinfo.value.filename == str(path)

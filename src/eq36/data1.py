@@ -389,7 +389,10 @@ class Data1:
 
         @return The parsed data file
 
-        @throws RuntimeError if `read_data1` fails
+        @throws OSError      if `read_data1` cannot open the file (see
+                `read_data1` for the specific types)
+        @throws eq36.libpyeq36.Data1Error if `read_data1` finds that the file
+                is not a valid data1 file
         @throws RuntimeError if a solid-solution end member occurs more than
                 once
         @throws ValueError   if any constructed `TPCurve`, species or solid
