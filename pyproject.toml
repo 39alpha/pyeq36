@@ -87,19 +87,22 @@ path="hatch_build.py"
 
 [dependency-groups]
 dev = [
+  { include-group = "test" },
   "codespell",
-  "hypothesis",
   "ipython",
   "pre-commit",
   "pyrefly",
-  "pytest",
   "pytest-cov",
-  "pytest-mock",
   "python-lsp-isort",
   "python-lsp-ruff",
   "python-lsp-server",
   "ruff",
   "zizmor",
+]
+test = [
+  "hypothesis",
+  "pytest",
+  "pytest-mock",
 ]
 
 [tool.ruff]
