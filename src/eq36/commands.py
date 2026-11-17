@@ -255,42 +255,45 @@ def _run(
     @throws Eq36TimeoutError if the command times out
     @throws OSError if the command cannot be executed
     """
-    process = Popen([cmd, *args], stdout=PIPE, stderr=PIPE)
-    try:
-        stdout, stderr = process.communicate(timeout=timeout)
-        if error_check:
-            _error_guard(stdout, str(cmd), error_type, fname=fname)
-    except TimeoutExpired as terr:
-        # The only way to land here is for timeout to not be None and for the
-        # process to actually time out.
-        assert timeout is not None
-
-        process.kill()
-        stdout, stderr = process.communicate()
-        if error_check:
-            try:
+    with Popen([cmd, *args], stdout=PIPE, stderr=PIPE) as process:
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+            if error_check:
                 _error_guard(stdout, str(cmd), error_type, fname=fname)
-                msg = f"{cmd} timed out without errors"
-                if fname is not None:
-                    msg += f" in file {fname!r}"
-            except Eq36Error as e:
-                msg = f"{cmd} timed out with errors"
-                if fname is not None:
-                    msg += f" in file {fname!r}"
-                raise Eq36TimeoutError(msg, cmd=cmd, timeout=timeout) from e
+        except TimeoutExpired as terr:
+            # The only way to land here is for timeout to not be None and for the
+            # process to actually time out.
+            assert timeout is not None
 
+            process.kill()
+            stdout, stderr = process.communicate()
+            if error_check:
+                try:
+                    _error_guard(stdout, str(cmd), error_type, fname=fname)
+                    msg = f"{cmd} timed out without errors"
+                    if fname is not None:
+                        msg += f" in file {fname!r}"
+                except Eq36Error as e:
+                    msg = f"{cmd} timed out with errors"
+                    if fname is not None:
+                        msg += f" in file {fname!r}"
+                    raise Eq36TimeoutError(msg, cmd=cmd, timeout=timeout) from e
+
+                raise Eq36TimeoutError(msg, cmd=cmd, timeout=timeout) from terr
+
+            msg = f"{cmd} timed out"
+            if fname is not None:
+                msg += f" on file {fname!r}"
             raise Eq36TimeoutError(msg, cmd=cmd, timeout=timeout) from terr
+        except BaseException:
+            process.kill()
+            raise
 
-        msg = f"{cmd} timed out"
-        if fname is not None:
-            msg += f" on file {fname!r}"
-        raise Eq36TimeoutError(msg, cmd=cmd, timeout=timeout) from terr
+        if process.returncode != 0:
+            msg = f"{cmd} failed with an unknown error (code: {process.returncode})"
+            raise error_type(msg, code=process.returncode)
 
-    if process.returncode != 0:
-        msg = f"{cmd} failed with an unknown error (code: {process.returncode})"
-        raise error_type(msg, code=process.returncode)
-
-    return stdout, stderr
+        return stdout, stderr
 
 
 def eqpt(data0: str | Path, timeout: float | None = None, error_check: bool = True) -> tuple[bytes, bytes]:

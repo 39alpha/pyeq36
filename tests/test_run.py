@@ -7,7 +7,7 @@ that the output, exit code and runtime of the command can be controlled.
 
 import signal
 import sys
-from subprocess import TimeoutExpired
+from subprocess import Popen, TimeoutExpired
 
 import pytest
 
@@ -189,3 +189,30 @@ def test_run_timeout_includes_filename(script: str, message: str, *, error_check
     assert type(excinfo.value) is Eq36TimeoutError
     assert excinfo.value.code == RunCode.TIMEOUT
     assert str(excinfo.value) == f"{sys.executable} {message}"
+
+
+@pytest.mark.parametrize("error", [RuntimeError, KeyboardInterrupt])
+def test_run_kills_command_if_interrupted(monkeypatch: pytest.MonkeyPatch, error: type[BaseException]) -> None:
+    """
+    Ensure that the command is killed if an error other than a timeout interrupts it.
+
+    `Popen.communicate` is replaced with a stub which raises `error`, leaving
+    the command running. If it were not killed, `_run` would wait for it to
+    finish, and it would exit successfully.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param error       The type of error which interrupts the command
+    """
+    processes: list[Popen[bytes]] = []
+
+    def communicate(self: Popen[bytes], *_args: object, **_kwargs: object) -> tuple[bytes, bytes]:
+        processes.append(self)
+        raise error
+
+    monkeypatch.setattr(Popen, "communicate", communicate)
+    with pytest.raises(error):
+        _ = python(SLOW_SCRIPT)
+
+    assert len(processes) == 1
+    assert processes[0].returncode is not None
+    assert processes[0].returncode != 0
