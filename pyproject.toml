@@ -105,6 +105,14 @@ test = [
   "pytest-mock",
 ]
 
+[tool.uv]
+cache-keys = [
+  { file = "pyproject.toml" },
+  { file = "hatch_build.py" },
+  { file = "eq36/meson.build" },
+  { file = "eq36/src/**/*.f90" },
+]
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"
