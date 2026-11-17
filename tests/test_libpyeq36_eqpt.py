@@ -7,8 +7,11 @@ values in the corresponding `.d1f` file. Indices in the arrays are 1-based.
 
 from __future__ import annotations
 
+import dataclasses
+import shutil
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pytest
 
 from eq36.libpyeq36 import Data, read_data1
@@ -16,7 +19,7 @@ from eq36.libpyeq36 import Data, read_data1
 from .eqpt_reference import D1F, DATA_DIR, NAME_WIDTH, REL_10SF, TOL_3DP, TOL_5DP, Species
 
 if TYPE_CHECKING:
-    import numpy as np
+    from pathlib import Path
 
     from eq36.typing import Array1D
 
@@ -170,3 +173,24 @@ def test_reads_solid_solution_end_members(data: Data, d1f: D1F) -> None:
         for name in data.species_names[species]
     ]
     assert pairs == [(member, name) for name, members in d1f.solid_solutions.items() for member in members]
+
+
+def test_reads_file_with_non_ascii_path(tmp_path: Path, database: str, data: Data) -> None:
+    """
+    Ensure that a data1 file is read the same way through a path containing non-ASCII characters.
+
+    The file is copied into a directory with a non-ASCII name, so the encoded
+    path must be opened by the Fortran runtime.
+
+    @param tmp_path A temporary directory in which to copy the data1 file
+    @param database The name of the database
+    @param data     The data read from the original path
+    """
+    path = tmp_path / "μ" / f"{database}.d1"
+    path.parent.mkdir()
+    _ = shutil.copy(DATA_DIR / f"{database}.d1", path)
+
+    copied = read_data1(path)
+
+    for field in dataclasses.fields(Data):
+        np.testing.assert_array_equal(getattr(copied, field.name), getattr(data, field.name), err_msg=field.name)

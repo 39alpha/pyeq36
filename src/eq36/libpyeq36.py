@@ -13,6 +13,7 @@ original error.
 
 from __future__ import annotations
 
+import os
 from ctypes import CDLL, POINTER, byref, c_bool, c_char_p, c_double, c_int, c_size_t, create_string_buffer
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -360,7 +361,7 @@ def read_data1(filename: str | Path) -> Data:
     @todo This function is long enough to need `noqa: PLR0915`; consider
           splitting allocation and the `indata` call into helpers.
     """
-    fname = bytes(str(filename), "ascii")
+    fname = os.fsencode(filename)
     data1 = c_int(0)
     errno = c_int(0)
 

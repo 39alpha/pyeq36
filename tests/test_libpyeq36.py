@@ -8,7 +8,9 @@ cleanup of `read_data1` can be tested without a data1 file.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
 import pytest
@@ -270,13 +272,18 @@ def test_read_data1_wraps_body_exception(natives: Natives) -> None:
     assert excinfo.value.__cause__ is error
 
 
-def test_read_data1_raises_on_non_ascii_filename(natives: Natives) -> None:
+@pytest.mark.parametrize("filename", ["ok.d1", "μ.d1", Path("μ.d1")])
+def test_read_data1_encodes_filename(natives: Natives, filename: str | Path) -> None:
     """
-    Ensure that `read_data1` raises a `UnicodeEncodeError` for a non-ASCII filename before opening it.
+    Ensure that `read_data1` passes the filename to `_open_data1` encoded with `os.fsencode`, with its length in bytes.
 
-    @param natives The mocked native subroutines
+    @param natives  The mocked native subroutines
+    @param filename The filename to read, which may contain non-ASCII characters
     """
-    with pytest.raises(UnicodeEncodeError):
-        _ = read_data1("μ.d1")
+    _ = read_data1(filename)
 
-    natives.open_data1.assert_not_called()
+    fname = os.fsencode(filename)
+    natives.open_data1.assert_called_once()
+    args = natives.open_data1.call_args.args
+    assert args[0] == fname
+    assert args[-1] == len(fname)
