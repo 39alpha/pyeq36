@@ -1,20 +1,24 @@
 """Ensure that `Eq36Error` exceptions are useful."""
 
-import builtins
+import copy
 import pickle
+from collections.abc import Callable
+from pathlib import Path
+from subprocess import TimeoutExpired
+from typing import cast
 
 import pytest
 from hypothesis import example, given
 from hypothesis import strategies as st
 
-from eq36.commands import Eq3Error, Eq6Error, Eq36Error, EqptError, RunCode, TimeoutError
+from eq36.commands import Eq3Error, Eq6Error, Eq36Error, Eq36TimeoutError, EqptError, RunCode
 
 ## Each subclass of `Eq36Error` and its default code
 SUBCLASSES: list[tuple[type[Eq36Error], RunCode]] = [
     (EqptError, RunCode.EQPT_ERROR),
     (Eq3Error, RunCode.EQ3_ERROR),
     (Eq6Error, RunCode.EQ6_ERROR),
-    (TimeoutError, RunCode.TIMEOUT),
+    (Eq36TimeoutError, RunCode.TIMEOUT),
 ]
 
 ## `Eq36Error` and each of its subclasses
@@ -22,6 +26,28 @@ ERROR_TYPES: list[type[Eq36Error]] = [Eq36Error, *(error_type for error_type, _ 
 
 ## The message of each `RunCode`, keyed by its value
 RUNCODE_MESSAGES = {code.value: str(code) for code in RunCode}
+
+
+def construct(error_type: type[Eq36Error], *args: object, code: RunCode | int | None = None) -> Eq36Error:
+    """
+    Construct an error of any type, supplying any keyword arguments that type requires.
+
+    An `Eq36TimeoutError` is given an arbitrary command and timeout.
+
+    @param error_type The type of the error
+    @param args       Positional arguments passed on to `error_type`
+    @param code       An optional code for the error; defaults to that of `error_type`
+
+    @return The error
+    """
+    if error_type is Eq36TimeoutError:
+        if code is None:
+            return Eq36TimeoutError(*args, cmd="eqpt", timeout=1.0)
+        return Eq36TimeoutError(*args, cmd="eqpt", timeout=1.0, code=code)
+
+    if code is None:
+        return error_type(*args)
+    return error_type(*args, code=code)
 
 
 def test_instantiate_eq36error_without_code() -> None:
@@ -85,7 +111,7 @@ def test_str_from_any_code(error_type: type[Eq36Error], code: int) -> None:
     @param code       The code of the error
     """
     expected = RUNCODE_MESSAGES.get(code, f"failed with an unknown error (code: {code})")
-    assert str(error_type(code=code)) == expected
+    assert str(construct(error_type, code=code)) == expected
 
 
 def test_eq36error_str_without_message_or_code() -> None:
@@ -106,7 +132,7 @@ def test_subclass_is_an_eq36error(error_type: type[Eq36Error]) -> None:
     @param error_type A subclass of `Eq36Error`
     """
     with pytest.raises(Eq36Error):
-        raise error_type
+        raise construct(error_type)
 
 
 @pytest.mark.parametrize(("error_type", "code"), SUBCLASSES)
@@ -117,7 +143,7 @@ def test_subclass_default_code(error_type: type[Eq36Error], code: RunCode) -> No
     @param error_type A subclass of `Eq36Error`
     @param code       The default code of `error_type`
     """
-    err = error_type("message")
+    err = construct(error_type, "message")
 
     assert str(err) == "message"
     assert err.code == code
@@ -131,7 +157,7 @@ def test_subclass_str_without_message(error_type: type[Eq36Error], code: RunCode
     @param error_type A subclass of `Eq36Error`
     @param code       The default code of `error_type`
     """
-    assert str(error_type()) == str(code)
+    assert str(construct(error_type)) == str(code)
 
 
 @pytest.mark.parametrize("error_type", [error_type for error_type, _ in SUBCLASSES])
@@ -145,8 +171,8 @@ def test_subclass_with_custom_code(error_type: type[Eq36Error], code: RunCode | 
     @param error_type A subclass of `Eq36Error`
     @param code       A code other than the default code of `error_type`
     """
-    with_message = error_type("message", code=code)
-    without_message = error_type(code=code)
+    with_message = construct(error_type, "message", code=code)
+    without_message = construct(error_type, code=code)
 
     assert with_message.code == code
     assert str(with_message) == "message"
@@ -154,37 +180,67 @@ def test_subclass_with_custom_code(error_type: type[Eq36Error], code: RunCode | 
     assert str(without_message) == str(Eq36Error(code=code))
 
 
-def test_timeouterror_is_a_builtin_timeouterror() -> None:
-    """Ensure that `eq36.commands.TimeoutError` is caught as the built-in `TimeoutError`."""
-    with pytest.raises(builtins.TimeoutError):
-        raise TimeoutError
-
-
-def test_timeouterror_is_an_oserror() -> None:
+@pytest.mark.parametrize("cmd", ["eqpt", Path("eqpt")])
+def test_eq36timeouterror_attributes(cmd: str | Path) -> None:
     """
-    Ensure that `eq36.commands.TimeoutError` is caught as an `OSError`.
+    Ensure that an `Eq36TimeoutError` retains the command, as a `str`, and the timeout.
 
-    This follows from it being a built-in `TimeoutError`.
+    @param cmd The command that timed out
     """
-    with pytest.raises(OSError):  # noqa: PT011
-        raise TimeoutError
+    err = Eq36TimeoutError("message", cmd=cmd, timeout=0.5)
+
+    assert err.cmd == "eqpt"
+    assert err.timeout == 0.5  # noqa: PLR2004
 
 
+@pytest.mark.parametrize("other", [OSError, TimeoutError, TimeoutExpired])
+def test_eq36timeouterror_is_only_an_eq36error(other: type[Exception]) -> None:
+    """
+    Ensure that an `Eq36TimeoutError` is not caught as any other kind of timeout.
+
+    In particular, it is not an `OSError`, which `eq36.commands._run` raises if
+    the command cannot be executed.
+
+    @param other An exception type which `Eq36TimeoutError` should not subclass
+    """
+    assert not issubclass(Eq36TimeoutError, other)
+
+
+def pickle_roundtrip(err: Eq36Error) -> Eq36Error:
+    """
+    Duplicate an error by pickling and unpickling it.
+
+    @param err The error to duplicate
+
+    @return The unpickled error
+    """
+    return cast("Eq36Error", pickle.loads(pickle.dumps(err)))
+
+
+@pytest.mark.parametrize("duplicate", [pickle_roundtrip, copy.copy, copy.deepcopy], ids=["pickle", "copy", "deepcopy"])
 @pytest.mark.parametrize("error_type", ERROR_TYPES)
 @pytest.mark.parametrize("args", [(), ("message",)])
 @pytest.mark.parametrize("kwargs", [{}, {"code": 5}, {"code": -11}, {"code": RunCode.EQ6_ERROR}])
-def test_pickle_roundtrip(error_type: type[Eq36Error], args: tuple[str, ...], kwargs: dict[str, RunCode | int]) -> None:
+def test_roundtrip(
+    duplicate: Callable[[Eq36Error], Eq36Error],
+    error_type: type[Eq36Error],
+    args: tuple[str, ...],
+    kwargs: dict[str, RunCode | int],
+) -> None:
     """
-    Ensure that an error survives pickling with its type, message and code intact.
+    Ensure that an error survives pickling and copying with its type, message and attributes intact.
 
+    @param duplicate  A function which pickles and unpickles, or copies, an error
     @param error_type The type of the error
     @param args       The positional arguments with which to construct the error
     @param kwargs     The keyword arguments with which to construct the error
     """
-    err = error_type(*args, **kwargs)
-    roundtrip = pickle.loads(pickle.dumps(err))
+    err = construct(error_type, *args, **kwargs)
+    roundtrip = duplicate(err)
 
+    assert roundtrip is not err
     assert type(roundtrip) is error_type
     assert roundtrip.args == err.args
-    assert roundtrip.code == err.code
+    assert vars(roundtrip) == vars(err)
+    assert type(roundtrip.code) is type(err.code)
     assert str(roundtrip) == str(err)

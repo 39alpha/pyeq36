@@ -7,10 +7,11 @@ that the output, exit code and runtime of the command can be controlled.
 
 import signal
 import sys
+from subprocess import TimeoutExpired
 
 import pytest
 
-from eq36.commands import Eq36Error, EqptError, RunCode, TimeoutError, _run
+from eq36.commands import Eq36Error, Eq36TimeoutError, EqptError, RunCode, _run
 
 ## A Python script which writes an EQ3/6-style error message to `stdout`
 ERROR_SCRIPT = "print(' * Error - (EQPT/test) Something went wrong.', flush=True)"
@@ -56,8 +57,8 @@ def test_run_raises_if_command_does_not_exist() -> None:
     """
     Ensure that an `OSError` is raised if the command cannot be executed.
 
-    The error is not an `Eq36Error`, so it can be distinguished from a timeout,
-    which is also an `OSError`.
+    The error is not an `Eq36Error`, so it can be distinguished from errors
+    raised once the command is running.
     """
     with pytest.raises(OSError) as excinfo:  # noqa: PT011
         _ = _run("/not/an/eq36/executable", error_type=Eq36Error)
@@ -123,31 +124,42 @@ def test_run_raises_on_signal(*, error_check: bool) -> None:
 )
 def test_run_raises_on_timeout(script: str, message: str, *, error_check: bool) -> None:
     """
-    Ensure that a `TimeoutError` with `RunCode.TIMEOUT` is raised if the command times out.
+    Ensure that an `Eq36TimeoutError` with `RunCode.TIMEOUT` is raised if the command times out.
+
+    The error carries the command and the timeout, and is caused by the
+    `TimeoutExpired` raised by `subprocess`.
 
     @param script      The Python source to run
     @param message     The expected error message, less the command
     @param error_check Whether or not to check `stdout` for error messages
     """
-    with pytest.raises(TimeoutError) as excinfo:
+    with pytest.raises(Eq36TimeoutError) as excinfo:
         _ = python(script, timeout=0.5, error_type=EqptError, error_check=error_check)
 
-    assert type(excinfo.value) is TimeoutError
+    assert type(excinfo.value) is Eq36TimeoutError
     assert excinfo.value.code == RunCode.TIMEOUT
     assert str(excinfo.value) == f"{sys.executable} {message}"
+    assert excinfo.value.cmd == sys.executable
+    assert excinfo.value.timeout == 0.5  # noqa: PLR2004
+    assert isinstance(excinfo.value.__cause__, TimeoutExpired)
 
 
 def test_run_raises_on_timeout_with_errors() -> None:
-    """Ensure that a timeout reports, and is caused by, any error message found in `stdout`."""
-    with pytest.raises(TimeoutError) as excinfo:
+    """
+    Ensure that a timeout reports, and is caused by, any error message found in `stdout`.
+
+    The `TimeoutExpired` raised by `subprocess` is the context of that cause.
+    """
+    with pytest.raises(Eq36TimeoutError) as excinfo:
         _ = python(f"{ERROR_SCRIPT}; {SLOW_SCRIPT}", timeout=0.5, error_type=EqptError)
 
-    assert type(excinfo.value) is TimeoutError
+    assert type(excinfo.value) is Eq36TimeoutError
     assert excinfo.value.code == RunCode.TIMEOUT
     assert str(excinfo.value) == f"{sys.executable} timed out with errors"
     assert isinstance(excinfo.value.__cause__, Eq36Error)
     assert type(excinfo.value.__cause__) is EqptError
     assert excinfo.value.__cause__.code == RunCode.EQPT_ERROR
+    assert isinstance(excinfo.value.__cause__.__context__, TimeoutExpired)
 
 
 @pytest.mark.parametrize(
@@ -171,9 +183,9 @@ def test_run_timeout_includes_filename(script: str, message: str, *, error_check
     @param message     The expected error message, less the command
     @param error_check Whether or not to check `stdout` for error messages
     """
-    with pytest.raises(TimeoutError) as excinfo:
+    with pytest.raises(Eq36TimeoutError) as excinfo:
         _ = python(script, timeout=0.5, fname="data0", error_check=error_check)
 
-    assert type(excinfo.value) is TimeoutError
+    assert type(excinfo.value) is Eq36TimeoutError
     assert excinfo.value.code == RunCode.TIMEOUT
     assert str(excinfo.value) == f"{sys.executable} {message}"

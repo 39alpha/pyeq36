@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 from enum import IntEnum
+from functools import partial
 from subprocess import PIPE, Popen, TimeoutExpired
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from typing_extensions import assert_never, override
 
@@ -56,11 +57,7 @@ class Eq36Error(Exception):
 
     This is the root of the `eq36` exception hierarchy. Errors raised while
     running a particular binary are subclasses, i.e. `EqptError`, `Eq3Error`
-    and `Eq6Error`, as are timeouts (`TimeoutError`).
-
-    @todo Consider extending the hierarchy to errors not specific to running
-          the binaries, such as a `Data1Error` for invalid data1 files (see
-          `ERRORS.md`).
+    and `Eq6Error`, as are timeouts (`Eq36TimeoutError`).
     """
 
     ## The code identifying the error, either a `RunCode` or a process exit code
@@ -156,22 +153,46 @@ class Eq6Error(Eq36Error):
         super().__init__(*args, code=code)
 
 
-class TimeoutError(Eq36Error, TimeoutError):
+class Eq36TimeoutError(Eq36Error):
     """An error signifying that an EQ3/6 command timed out."""
 
-    def __init__(self, *args: object, code: RunCode | int = RunCode.TIMEOUT) -> None:
+    ## The command that timed out
+    cmd: str
+    ## The timeout that expired (in seconds)
+    timeout: float
+
+    def __init__(self, *args: object, cmd: str | Path, timeout: float, code: RunCode | int = RunCode.TIMEOUT) -> None:
         """
-        Construct a `TimeoutError` from `args` and a `code`.
+        Construct an `Eq36TimeoutError` from `args`, the command, its timeout and a `code`.
 
         If no `args` are provided, the error message is generated from `code`
         (see `Eq36Error.__str__`).
 
-        @param args Positional arguments passed on to `Eq36Error`; the first, if
-                    provided, is used as the error message
-        @param code An optional (keyword-only) code identifying the error;
-                    defaults to `RunCode.TIMEOUT`
+        @param args    Positional arguments passed on to `Eq36Error`; the first, if
+                       provided, is used as the error message
+        @param cmd     The (keyword-only) command that timed out; stored as a `str`
+        @param timeout The (keyword-only) timeout that expired (in seconds)
+        @param code    An optional (keyword-only) code identifying the error;
+                       defaults to `RunCode.TIMEOUT`
         """
         super().__init__(*args, code=code)
+        self.cmd = str(cmd)
+        self.timeout = timeout
+
+    @override
+    # pyrefly: ignore[explicit-any]
+    def __reduce__(self) -> tuple[Any, ...]:
+        """
+        Reduce the error for pickling and copying.
+
+        The error is reconstructed by calling its type with `args` and the
+        keyword-only `cmd` and `timeout`, after which the rest of its state,
+        e.g. `code`, is restored.
+
+        @return A constructor with `cmd` and `timeout` bound, the arguments with
+                which to call it, and the error's state
+        """
+        return (partial(type(self), cmd=self.cmd, timeout=self.timeout), self.args, self.__dict__)
 
 
 def _error_guard(output: bytes | str, cmd: str, error_type: type[Eq36Error], fname: str | Path | None = None) -> None:
@@ -231,7 +252,7 @@ def _run(
     @throws Eq36Error of type `error_type` if `stdout` includes an error message and `error_check == True`
     @throws Eq36Error of type `error_type` with the process' exit code if the command exits with a
             non-zero exit code (e.g. segfaults)
-    @throws TimeoutError if the command times out
+    @throws Eq36TimeoutError if the command times out
     @throws OSError if the command cannot be executed
     """
     process = Popen([cmd, *args], stdout=PIPE, stderr=PIPE)
@@ -240,6 +261,10 @@ def _run(
         if error_check:
             _error_guard(stdout, str(cmd), error_type, fname=fname)
     except TimeoutExpired as terr:
+        # The only way to land here is for timeout to not be None and for the
+        # process to actually time out.
+        assert timeout is not None
+
         process.kill()
         stdout, stderr = process.communicate()
         if error_check:
@@ -252,14 +277,14 @@ def _run(
                 msg = f"{cmd} timed out with errors"
                 if fname is not None:
                     msg += f" in file {fname!r}"
-                raise TimeoutError(msg) from e
+                raise Eq36TimeoutError(msg, cmd=cmd, timeout=timeout) from e
 
-            raise TimeoutError(msg) from terr
+            raise Eq36TimeoutError(msg, cmd=cmd, timeout=timeout) from terr
 
         msg = f"{cmd} timed out"
         if fname is not None:
             msg += f" on file {fname!r}"
-        raise TimeoutError(msg) from terr
+        raise Eq36TimeoutError(msg, cmd=cmd, timeout=timeout) from terr
 
     if process.returncode != 0:
         msg = f"{cmd} failed with an unknown error (code: {process.returncode})"
@@ -283,7 +308,7 @@ def eqpt(data0: str | Path, timeout: float | None = None, error_check: bool = Tr
 
     @throws EqptError if `stdout` includes an error message and `error_check == True`
     @throws EqptError with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
-    @throws TimeoutError if the command times out
+    @throws Eq36TimeoutError if the command times out
     @throws RuntimeError if the `bin` directory does not exist
     @throws RuntimeError if the `eqpt` executable is not found
     @throws OSError if the executable cannot be executed
@@ -313,7 +338,7 @@ def eq3nr(data1: str | Path, threei: str | Path, timeout: float | None = None) -
 
     @throws Eq3Error if `stdout` includes an error message
     @throws Eq3Error with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
-    @throws TimeoutError if the command times out
+    @throws Eq36TimeoutError if the command times out
     @throws RuntimeError if the `bin` directory does not exist
     @throws RuntimeError if the `eq3nr` executable is not found
     @throws OSError if the executable cannot be executed
@@ -338,7 +363,7 @@ def eq6(data1: str | Path, sixi: str | Path, timeout: float | None = None) -> tu
 
     @throws Eq6Error if `stdout` includes an error message
     @throws Eq6Error with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
-    @throws TimeoutError if the command times out
+    @throws Eq36TimeoutError if the command times out
     @throws RuntimeError if the `bin` directory does not exist
     @throws RuntimeError if the `eq6` executable is not found
     @throws OSError if the executable cannot be executed
@@ -352,9 +377,9 @@ __all__ = [
     "Eq3Error",
     "Eq6Error",
     "Eq36Error",
+    "Eq36TimeoutError",
     "EqptError",
     "RunCode",
-    "TimeoutError",
     "eq3nr",
     "eq6",
     "eqpt",
