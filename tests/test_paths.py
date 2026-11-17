@@ -41,12 +41,13 @@ def test_get_bin_raises_if_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 
     assert excinfo.value.errno == errno.ENOENT
     assert excinfo.value.filename == str((tmp_path / "bin").resolve())
+    assert str(excinfo.value).count(excinfo.value.filename) == 1
     assert "EQ36_BIN" not in str(excinfo.value)
 
 
 def test_get_bin_raises_if_not_a_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Ensure that `get_bin` raises a `NotADirectoryError` if the `bin` path is a file.
+    Ensure that `get_bin` raises a `NotADirectoryError`, naming the path, if the `bin` path is a file.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param tmp_path    A temporary directory in which `bin` is a file
@@ -56,6 +57,7 @@ def test_get_bin_raises_if_not_a_directory(monkeypatch: pytest.MonkeyPatch, tmp_
     with pytest.raises(NotADirectoryError, match="is not a directory") as excinfo:
         _ = get_bin()
 
+    assert str((tmp_path / "bin").resolve()) in str(excinfo.value)
     assert "EQ36_BIN" not in str(excinfo.value)
 
 
@@ -78,6 +80,7 @@ def test_get_execpath_raises_if_not_found() -> None:
 
     assert excinfo.value.errno == errno.ENOENT
     assert Path(excinfo.value.filename).name.startswith("not-an-eq36-executable")
+    assert str(excinfo.value).count(excinfo.value.filename) == 1
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="the executables are suffixed on windows")
@@ -87,15 +90,17 @@ def test_get_execpath_adds_exe_suffix_on_windows(monkeypatch: pytest.MonkeyPatch
     Ensure that `get_execpath` searches for an `.exe` suffixed executable on Windows.
 
     The platform is faked, so the unsuffixed executable that is installed is
-    not found; the error message reveals which file was searched for. A
+    not found; the error's `filename` reveals which file was searched for. A
     command which is already suffixed should not be suffixed again.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param executable  The name of the command to search for
     """
     monkeypatch.setattr(sys, "platform", "win32")
-    with pytest.raises(FileNotFoundError, match=r"[/\\]eqpt\.exe command not found"):
+    with pytest.raises(FileNotFoundError, match="command not found") as excinfo:
         _ = get_execpath(executable)
+
+    assert Path(excinfo.value.filename).name == "eqpt.exe"
 
 
 ## The suffix of executables on the current platform
@@ -293,19 +298,22 @@ def test_get_lib_raises_if_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 
     assert excinfo.value.errno == errno.ENOENT
     assert excinfo.value.filename == str((tmp_path / "lib").resolve())
+    assert str(excinfo.value).count(excinfo.value.filename) == 1
 
 
 def test_get_lib_raises_if_not_a_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Ensure that `get_lib` raises a `NotADirectoryError` if the `lib` path is a file.
+    Ensure that `get_lib` raises a `NotADirectoryError`, naming the path, if the `lib` path is a file.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param tmp_path    A temporary directory in which `lib` is a file
     """
     (tmp_path / "lib").touch()
     monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
-    with pytest.raises(NotADirectoryError, match="is not a directory"):
+    with pytest.raises(NotADirectoryError, match="is not a directory") as excinfo:
         _ = get_lib()
+
+    assert str((tmp_path / "lib").resolve()) in str(excinfo.value)
 
 
 ## The suffix of shared libraries on the current platform
@@ -395,6 +403,7 @@ def test_get_libpath_raises_if_not_found(lib_dir: Path) -> None:
 
     assert excinfo.value.errno == errno.ENOENT
     assert Path(excinfo.value.filename).parent == lib_dir
+    assert str(excinfo.value).count(excinfo.value.filename) == 1
 
 
 def test_get_libpath_raises_if_lib_is_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

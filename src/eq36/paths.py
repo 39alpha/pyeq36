@@ -40,13 +40,11 @@ def get_bin() -> Path:
 
     @return The resolved path to the `bin` directory
 
-    @throws FileNotFoundError  if the directory does not exist, noting if the
-            path came from `EQ36_BIN`
+    @throws FileNotFoundError  if the directory does not exist
     @throws FileNotFoundError  if `EQ36_BIN` cannot be expanded or resolved,
             e.g. it begins with `~` and the home directory cannot be
             determined
-    @throws NotADirectoryError if the path exists but is not a directory,
-            noting if the path came from `EQ36_BIN`
+    @throws NotADirectoryError if the path exists but is not a directory
     """
     path_override = os.getenv("EQ36_BIN")
     if path_override:
@@ -54,14 +52,14 @@ def get_bin() -> Path:
         try:
             bin_path = bin_path.expanduser().resolve()
         except RuntimeError as err:
-            msg = f"{bin_path} from EQ36_BIN does not exist"
+            msg = "bin directory from EQ36_BIN does not exist"
             raise FileNotFoundError(errno.ENOENT, msg, str(bin_path)) from err
     else:
         bin_path = (Path(__file__).parent / "bin").resolve()
 
     if not bin_path.exists():
         from_source = " from EQ36_BIN" if path_override else ""
-        msg = f"{bin_path}{from_source} does not exist"
+        msg = f"bin directory{from_source} does not exist"
         raise FileNotFoundError(errno.ENOENT, msg, str(bin_path))
     if not bin_path.is_dir():
         from_source = " from EQ36_BIN" if path_override else ""
@@ -85,7 +83,7 @@ def get_lib() -> Path:
     lib_path = (Path(__file__).parent / "lib").resolve()
 
     if not lib_path.exists():
-        msg = f"{lib_path} does not exist"
+        msg = "lib path does not exist"
         raise FileNotFoundError(errno.ENOENT, msg, str(lib_path))
     if not lib_path.is_dir():
         msg = f"{lib_path} is not a directory"
@@ -117,7 +115,7 @@ def get_execpath(cmd: str | Path) -> Path:
     suffix = ".exe" if sys.platform.startswith("win") and not str(cmd).lower().endswith(".exe") else ""
     execpath = (get_bin() / (str(cmd) + suffix)).resolve()
     if not execpath.is_file():
-        msg = f"{execpath!s} command not found"
+        msg = "command not found"
         raise FileNotFoundError(errno.ENOENT, msg, str(execpath))
     return execpath
 
@@ -158,7 +156,7 @@ def get_libpath(lib: str | Path) -> Path:
 
     libpath = (get_lib() / str(lib.parent) / (prefix + lib.name + suffix)).resolve()
     if not libpath.is_file():
-        msg = f"{libpath!s} library not found"
+        msg = "library not found"
         raise FileNotFoundError(errno.ENOENT, msg, str(libpath))
     return libpath
 
