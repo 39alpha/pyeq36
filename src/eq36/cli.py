@@ -42,7 +42,6 @@ def _run(cmd: str) -> None:
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if `cmd` is not found in the `bin` directory
-    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws RuntimeError if `cmd` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
@@ -73,7 +72,6 @@ def eqpt() -> None:
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if `eqpt` is not found in the `bin` directory
-    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws RuntimeError if `eqpt` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
@@ -91,7 +89,6 @@ def eq3nr() -> None:
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if `eq3nr` is not found in the `bin` directory
-    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws RuntimeError if `eq3nr` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
@@ -109,7 +106,6 @@ def eq6() -> None:
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if `eq6` is not found in the `bin` directory
-    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws RuntimeError if `eq6` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 

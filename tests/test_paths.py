@@ -179,6 +179,26 @@ def test_get_bin_raises_if_eq36_bin_is_not_a_directory(
         _ = get_bin()
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="`~user` does not fail to expand on Windows")
+def test_get_bin_raises_if_eq36_bin_cannot_be_expanded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Ensure that `get_bin` raises a `FileNotFoundError`, naming `EQ36_BIN`, if `EQ36_BIN` cannot be expanded.
+
+    `Path.expanduser` raises a `RuntimeError` for `~user` if the user is
+    unknown; this is the cause of the raised error.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    """
+    path = "~not-an-eq36-user/bin"
+    monkeypatch.setenv("EQ36_BIN", path)
+    with pytest.raises(FileNotFoundError, match="from EQ36_BIN does not exist") as excinfo:
+        _ = get_bin()
+
+    assert excinfo.value.errno == errno.ENOENT
+    assert excinfo.value.filename == path
+    assert isinstance(excinfo.value.__cause__, RuntimeError)
+
+
 def test_get_execpath_uses_eq36_bin(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
     Ensure that `get_execpath` finds executables in the directory given by `EQ36_BIN`.

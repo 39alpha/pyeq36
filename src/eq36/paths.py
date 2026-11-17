@@ -42,14 +42,20 @@ def get_bin() -> Path:
 
     @throws FileNotFoundError  if the directory does not exist, noting if the
             path came from `EQ36_BIN`
+    @throws FileNotFoundError  if `EQ36_BIN` cannot be expanded or resolved,
+            e.g. it begins with `~` and the home directory cannot be
+            determined
     @throws NotADirectoryError if the path exists but is not a directory,
             noting if the path came from `EQ36_BIN`
-    @throws RuntimeError       if `EQ36_BIN` begins with `~` and the home
-            directory cannot be determined
     """
     path_override = os.getenv("EQ36_BIN")
     if path_override:
-        bin_path = Path(path_override).expanduser().resolve()
+        bin_path = Path(path_override)
+        try:
+            bin_path = bin_path.expanduser().resolve()
+        except RuntimeError as err:
+            msg = f"{bin_path} from EQ36_BIN does not exist"
+            raise FileNotFoundError(errno.ENOENT, msg, str(bin_path)) from err
     else:
         bin_path = (Path(__file__).parent / "bin").resolve()
 
@@ -103,8 +109,6 @@ def get_execpath(cmd: str | Path) -> Path:
     @throws FileNotFoundError  if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError  if the executable is not found
-    @throws RuntimeError       if `EQ36_BIN` begins with `~` and the home
-            directory cannot be determined
 
     @note If `cmd` is absolute, or climbs out of the `bin` directory with
           `".."`, the executable is searched for at that location instead, so

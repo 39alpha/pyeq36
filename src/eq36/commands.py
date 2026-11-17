@@ -315,7 +315,6 @@ def eqpt(data0: str | Path, timeout: float | None = None, error_check: bool = Tr
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if the `eqpt` executable is not found
-    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws OSError if the executable cannot be executed
     """
     return _run(
@@ -353,7 +352,6 @@ def eq3nr(
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if the `eq3nr` executable is not found
-    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws OSError if the executable cannot be executed
     """
     return _run(
@@ -392,7 +390,6 @@ def eq6(
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if the `eq6` executable is not found
-    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws OSError if the executable cannot be executed
     """
     return _run(
