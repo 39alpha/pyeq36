@@ -57,11 +57,11 @@ def test_shim_execs_executable(
 
 def test_shim_raises_if_executable_is_missing(execv_args: list[tuple[Path, list[str]]]) -> None:
     """
-    Ensure that a `RuntimeError` is raised, and the process is not replaced, if the executable is not found.
+    Ensure that a `FileNotFoundError` is raised, and the process is not replaced, if the executable is not found.
 
     @param execv_args The recorded arguments of calls to `os.execv`
     """
-    with pytest.raises(RuntimeError, match="command not found"):
+    with pytest.raises(FileNotFoundError, match="command not found"):
         cli._run("not-an-eq36-executable")  # noqa: SLF001
 
     assert execv_args == []

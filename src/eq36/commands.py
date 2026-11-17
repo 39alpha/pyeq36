@@ -312,8 +312,10 @@ def eqpt(data0: str | Path, timeout: float | None = None, error_check: bool = Tr
     @throws EqptError if `stdout` includes an error message and `error_check == True`
     @throws EqptError with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
     @throws Eq36TimeoutError if the command times out
-    @throws RuntimeError if the `bin` directory does not exist
-    @throws RuntimeError if the `eqpt` executable is not found
+    @throws FileNotFoundError if the `bin` directory does not exist
+    @throws NotADirectoryError if the `bin` path is not a directory
+    @throws FileNotFoundError if the `eqpt` executable is not found
+    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws OSError if the executable cannot be executed
     """
     return _run(
@@ -348,8 +350,10 @@ def eq3nr(
     @throws Eq3Error if `stdout` includes an error message and `error_check == True`
     @throws Eq3Error with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
     @throws Eq36TimeoutError if the command times out
-    @throws RuntimeError if the `bin` directory does not exist
-    @throws RuntimeError if the `eq3nr` executable is not found
+    @throws FileNotFoundError if the `bin` directory does not exist
+    @throws NotADirectoryError if the `bin` path is not a directory
+    @throws FileNotFoundError if the `eq3nr` executable is not found
+    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws OSError if the executable cannot be executed
     """
     return _run(
@@ -385,8 +389,10 @@ def eq6(
     @throws Eq6Error if `stdout` includes an error message and `error_check == True`
     @throws Eq6Error with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
     @throws Eq36TimeoutError if the command times out
-    @throws RuntimeError if the `bin` directory does not exist
-    @throws RuntimeError if the `eq6` executable is not found
+    @throws FileNotFoundError if the `bin` directory does not exist
+    @throws NotADirectoryError if the `bin` path is not a directory
+    @throws FileNotFoundError if the `eq6` executable is not found
+    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws OSError if the executable cannot be executed
     """
     return _run(

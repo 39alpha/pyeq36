@@ -7,7 +7,7 @@ this module is imported. The Fortran subroutines are called through `ctypes`
 using their gfortran-mangled module symbol names.
 
 @todo Loading the library at import time means that importing `eq36.libpyeq36`
-      (or `eq36.data1`) raises `RuntimeError` if the library is missing.
+      (or `eq36.data1`) raises `FileNotFoundError` if the library is missing.
       Consider loading it lazily.
 """
 

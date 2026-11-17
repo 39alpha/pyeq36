@@ -1,5 +1,6 @@
 """Test the path resolution utilities in `eq36.paths`."""
 
+import errno
 import sys
 from pathlib import Path
 
@@ -29,13 +30,30 @@ def test_executable_paths_are_found(executable: str) -> None:
 
 def test_get_bin_raises_if_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Ensure that `get_bin` raises a `RuntimeError` if the `bin` directory does not exist.
+    Ensure that `get_bin` raises a `FileNotFoundError`, naming the path, if the `bin` directory does not exist.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param tmp_path    A temporary directory without a `bin` subdirectory
     """
     monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
-    with pytest.raises(RuntimeError, match="is not a directory") as excinfo:
+    with pytest.raises(FileNotFoundError, match="does not exist") as excinfo:
+        _ = get_bin()
+
+    assert excinfo.value.errno == errno.ENOENT
+    assert excinfo.value.filename == str((tmp_path / "bin").resolve())
+    assert "EQ36_BIN" not in str(excinfo.value)
+
+
+def test_get_bin_raises_if_not_a_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Ensure that `get_bin` raises a `NotADirectoryError` if the `bin` path is a file.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory in which `bin` is a file
+    """
+    (tmp_path / "bin").touch()
+    monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
+    with pytest.raises(NotADirectoryError, match="is not a directory") as excinfo:
         _ = get_bin()
 
     assert "EQ36_BIN" not in str(excinfo.value)
@@ -43,20 +61,23 @@ def test_get_bin_raises_if_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 
 def test_get_execpath_raises_if_bin_is_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Ensure that `get_execpath` raises a `RuntimeError` if the `bin` directory does not exist.
+    Ensure that `get_execpath` raises a `FileNotFoundError` if the `bin` directory does not exist.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param tmp_path    A temporary directory without a `bin` subdirectory
     """
     monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
-    with pytest.raises(RuntimeError, match="is not a directory"):
+    with pytest.raises(FileNotFoundError, match="does not exist"):
         _ = get_execpath("eqpt")
 
 
 def test_get_execpath_raises_if_not_found() -> None:
-    """Ensure that `get_execpath` raises a `RuntimeError` if the executable does not exist."""
-    with pytest.raises(RuntimeError, match="command not found"):
+    """Ensure that `get_execpath` raises a `FileNotFoundError`, naming the path, if the executable does not exist."""
+    with pytest.raises(FileNotFoundError, match="command not found") as excinfo:
         _ = get_execpath("not-an-eq36-executable")
+
+    assert excinfo.value.errno == errno.ENOENT
+    assert Path(excinfo.value.filename).name.startswith("not-an-eq36-executable")
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="the executables are suffixed on windows")
@@ -73,7 +94,7 @@ def test_get_execpath_adds_exe_suffix_on_windows(monkeypatch: pytest.MonkeyPatch
     @param executable  The name of the command to search for
     """
     monkeypatch.setattr(sys, "platform", "win32")
-    with pytest.raises(RuntimeError, match=r"[/\\]eqpt\.exe command not found"):
+    with pytest.raises(FileNotFoundError, match=r"[/\\]eqpt\.exe command not found"):
         _ = get_execpath(executable)
 
 
@@ -129,22 +150,32 @@ def test_get_bin_resolves_relative_eq36_bin(monkeypatch: pytest.MonkeyPatch, tmp
     assert get_bin() == (tmp_path / "bin").resolve()
 
 
-@pytest.mark.parametrize("name", ["missing", "file"])
+@pytest.mark.parametrize(
+    ("name", "error", "match"),
+    [
+        ("missing", FileNotFoundError, "from EQ36_BIN does not exist"),
+        ("file", NotADirectoryError, "from EQ36_BIN is not a directory"),
+    ],
+)
 def test_get_bin_raises_if_eq36_bin_is_not_a_directory(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     name: str,
+    error: type[OSError],
+    match: str,
 ) -> None:
     """
-    Ensure that `get_bin` raises a `RuntimeError`, naming `EQ36_BIN`, if `EQ36_BIN` is not a directory.
+    Ensure that `get_bin` raises an appropriate `OSError`, naming `EQ36_BIN`, if `EQ36_BIN` is not a directory.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param tmp_path    A temporary directory in which `file` (but not `missing`) exists
     @param name        The name of the path, within `tmp_path`, to use as `EQ36_BIN`
+    @param error       The type of error expected
+    @param match       A pattern the error message is expected to match
     """
     (tmp_path / "file").touch()
     monkeypatch.setenv("EQ36_BIN", str(tmp_path / name))
-    with pytest.raises(RuntimeError, match="from EQ36_BIN is not a directory"):
+    with pytest.raises(error, match=match):
         _ = get_bin()
 
 
@@ -194,13 +225,13 @@ def test_get_execpath_ignores_case_of_exe_suffix(monkeypatch: pytest.MonkeyPatch
 
 def test_get_execpath_raises_if_not_in_eq36_bin(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Ensure that `get_execpath` raises a `RuntimeError` if the executable is not in the directory given by `EQ36_BIN`.
+    Ensure that `get_execpath` raises a `FileNotFoundError` if the executable is not in the `EQ36_BIN` directory.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param tmp_path    An empty temporary directory to use as the `bin` directory
     """
     monkeypatch.setenv("EQ36_BIN", str(tmp_path))
-    with pytest.raises(RuntimeError, match="command not found"):
+    with pytest.raises(FileNotFoundError, match="command not found"):
         _ = get_execpath("eqpt")
 
 
@@ -231,13 +262,29 @@ def test_get_lib() -> None:
 
 def test_get_lib_raises_if_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Ensure that `get_lib` raises a `RuntimeError` if the `lib` directory does not exist.
+    Ensure that `get_lib` raises a `FileNotFoundError`, naming the path, if the `lib` directory does not exist.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param tmp_path    A temporary directory without a `lib` subdirectory
     """
     monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
-    with pytest.raises(RuntimeError, match="is not a directory"):
+    with pytest.raises(FileNotFoundError, match="does not exist") as excinfo:
+        _ = get_lib()
+
+    assert excinfo.value.errno == errno.ENOENT
+    assert excinfo.value.filename == str((tmp_path / "lib").resolve())
+
+
+def test_get_lib_raises_if_not_a_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Ensure that `get_lib` raises a `NotADirectoryError` if the `lib` path is a file.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory in which `lib` is a file
+    """
+    (tmp_path / "lib").touch()
+    monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
+    with pytest.raises(NotADirectoryError, match="is not a directory"):
         _ = get_lib()
 
 
@@ -319,22 +366,26 @@ def test_get_libpath_searches_subdirectories(monkeypatch: pytest.MonkeyPatch, li
 
 def test_get_libpath_raises_if_not_found(lib_dir: Path) -> None:
     """
-    Ensure that `get_libpath` raises a `RuntimeError` if the library is not in the `lib` directory.
+    Ensure that `get_libpath` raises a `FileNotFoundError`, naming the path, if the library is not in `lib`.
 
     @param lib_dir The (empty) temporary `lib` directory
     """
-    _ = lib_dir
-    with pytest.raises(RuntimeError, match="library not found"):
+    with pytest.raises(FileNotFoundError, match="library not found") as excinfo:
         _ = get_libpath("pyeq36")
+
+    assert excinfo.value.errno == errno.ENOENT
+    assert Path(excinfo.value.filename).parent == lib_dir
 
 
 def test_get_libpath_raises_if_lib_is_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """
-    Ensure that `get_libpath` raises a `RuntimeError` if the `lib` directory does not exist.
+    Ensure that `get_libpath` raises a `FileNotFoundError` if the `lib` directory does not exist.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param tmp_path    A temporary directory without a `lib` subdirectory
     """
     monkeypatch.setattr(paths, "__file__", str(tmp_path / "paths.py"))
-    with pytest.raises(RuntimeError, match="is not a directory"):
+    with pytest.raises(FileNotFoundError) as excinfo:
         _ = get_libpath("pyeq36")
+
+    assert excinfo.value.filename == str((tmp_path / "lib").resolve())

@@ -39,8 +39,10 @@ def _run(cmd: str) -> None:
 
     @param cmd The name of the command to be run, e.g. `"eq6"`
 
-    @throws RuntimeError if the `bin` directory does not exist
-    @throws RuntimeError if `cmd` is not found in the `bin` directory
+    @throws FileNotFoundError if the `bin` directory does not exist
+    @throws NotADirectoryError if the `bin` path is not a directory
+    @throws FileNotFoundError if `cmd` is not found in the `bin` directory
+    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws RuntimeError if `cmd` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
@@ -68,8 +70,10 @@ def eqpt() -> None:
 
     This is the entry point for the `eqpt` script installed with this package.
 
-    @throws RuntimeError if the `bin` directory does not exist
-    @throws RuntimeError if `eqpt` is not found in the `bin` directory
+    @throws FileNotFoundError if the `bin` directory does not exist
+    @throws NotADirectoryError if the `bin` path is not a directory
+    @throws FileNotFoundError if `eqpt` is not found in the `bin` directory
+    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws RuntimeError if `eqpt` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
@@ -84,8 +88,10 @@ def eq3nr() -> None:
 
     This is the entry point for the `eq3nr` script installed with this package.
 
-    @throws RuntimeError if the `bin` directory does not exist
-    @throws RuntimeError if `eq3nr` is not found in the `bin` directory
+    @throws FileNotFoundError if the `bin` directory does not exist
+    @throws NotADirectoryError if the `bin` path is not a directory
+    @throws FileNotFoundError if `eq3nr` is not found in the `bin` directory
+    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws RuntimeError if `eq3nr` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 
@@ -100,8 +106,10 @@ def eq6() -> None:
 
     This is the entry point for the `eq6` script installed with this package.
 
-    @throws RuntimeError if the `bin` directory does not exist
-    @throws RuntimeError if `eq6` is not found in the `bin` directory
+    @throws FileNotFoundError if the `bin` directory does not exist
+    @throws NotADirectoryError if the `bin` path is not a directory
+    @throws FileNotFoundError if `eq6` is not found in the `bin` directory
+    @throws RuntimeError if `EQ36_BIN` begins with `~` and the home directory cannot be determined
     @throws RuntimeError if `eq6` resolves to the running shim script
     @throws OSError if the executable cannot be executed
 

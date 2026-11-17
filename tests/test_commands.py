@@ -168,3 +168,29 @@ def test_commands_ignore_errors_without_error_check(
     stdout, _ = command(*args, timeout=30, error_check=False)
 
     assert f'The file "{args[0]}"'.encode() in stdout
+
+
+@pytest.mark.parametrize(
+    ("command", "args"),
+    [(eqpt, ("data0",)), (eq3nr, ("data1", "input")), (eq6, ("data1", "input"))],
+)
+def test_commands_raise_if_executable_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    command: Callable[..., tuple[bytes, bytes]],
+    args: tuple[str, ...],
+) -> None:
+    """
+    Ensure that `eqpt`, `eq3nr` and `eq6` raise a `FileNotFoundError` if their executable is missing.
+
+    This is the same type that `Popen` raises if it cannot find an executable,
+    so callers see one type of error for a missing executable.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    An empty temporary directory to use as the `bin` directory
+    @param command     The function under test
+    @param args        The files to pass to `command`
+    """
+    monkeypatch.setenv("EQ36_BIN", str(tmp_path))
+    with pytest.raises(FileNotFoundError, match="command not found"):
+        _ = command(*args)

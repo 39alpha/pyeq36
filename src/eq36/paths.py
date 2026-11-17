@@ -7,6 +7,7 @@ used, but the `EQ36_BIN` environment variable can be set to the directory of
 EQ3/6 binaries installed elsewhere.
 """
 
+import errno
 import os
 import sys
 from pathlib import Path
@@ -39,8 +40,12 @@ def get_bin() -> Path:
 
     @return The resolved path to the `bin` directory
 
-    @throws RuntimeError if the directory does not exist, noting if the path
-            came from `EQ36_BIN`
+    @throws FileNotFoundError  if the directory does not exist, noting if the
+            path came from `EQ36_BIN`
+    @throws NotADirectoryError if the path exists but is not a directory,
+            noting if the path came from `EQ36_BIN`
+    @throws RuntimeError       if `EQ36_BIN` begins with `~` and the home
+            directory cannot be determined
     """
     path_override = os.getenv("EQ36_BIN")
     if path_override:
@@ -48,10 +53,14 @@ def get_bin() -> Path:
     else:
         bin_path = (Path(__file__).parent / "bin").resolve()
 
+    if not bin_path.exists():
+        from_source = " from EQ36_BIN" if path_override else ""
+        msg = f"{bin_path}{from_source} does not exist"
+        raise FileNotFoundError(errno.ENOENT, msg, str(bin_path))
     if not bin_path.is_dir():
         from_source = " from EQ36_BIN" if path_override else ""
         msg = f"{bin_path}{from_source} is not a directory"
-        raise RuntimeError(msg)
+        raise NotADirectoryError(msg)
     return bin_path
 
 
@@ -64,13 +73,17 @@ def get_lib() -> Path:
 
     @return The resolved path to the `lib` directory
 
-    @throws RuntimeError if the directory does not exist
+    @throws FileNotFoundError  if the directory does not exist
+    @throws NotADirectoryError if the path exists but is not a directory
     """
     lib_path = (Path(__file__).parent / "lib").resolve()
 
+    if not lib_path.exists():
+        msg = f"{lib_path} does not exist"
+        raise FileNotFoundError(errno.ENOENT, msg, str(lib_path))
     if not lib_path.is_dir():
         msg = f"{lib_path} is not a directory"
-        raise RuntimeError(msg)
+        raise NotADirectoryError(msg)
     return lib_path
 
 
@@ -87,8 +100,11 @@ def get_execpath(cmd: str | Path) -> Path:
 
     @return The resolved path to the executable
 
-    @throws RuntimeError if the `bin` directory does not exist
-    @throws RuntimeError if the executable is not found
+    @throws FileNotFoundError  if the `bin` directory does not exist
+    @throws NotADirectoryError if the `bin` path is not a directory
+    @throws FileNotFoundError  if the executable is not found
+    @throws RuntimeError       if `EQ36_BIN` begins with `~` and the home
+            directory cannot be determined
 
     @note If `cmd` is absolute, or climbs out of the `bin` directory with
           `".."`, the executable is searched for at that location instead, so
@@ -98,7 +114,7 @@ def get_execpath(cmd: str | Path) -> Path:
     execpath = (get_bin() / (str(cmd) + suffix)).resolve()
     if not execpath.is_file():
         msg = f"{execpath!s} command not found"
-        raise RuntimeError(msg)
+        raise FileNotFoundError(errno.ENOENT, msg, str(execpath))
     return execpath
 
 
@@ -117,8 +133,9 @@ def get_libpath(lib: str | Path) -> Path:
 
     @return The resolved path to the library
 
-    @throws RuntimeError if the `lib` directory does not exist
-    @throws RuntimeError if the library is not found
+    @throws FileNotFoundError  if the `lib` directory does not exist
+    @throws NotADirectoryError if the `lib` path is not a directory
+    @throws FileNotFoundError  if the library is not found
 
     @note If `lib` is absolute, or climbs out of the `lib` directory with
           `".."`, the library is searched for at that location instead, so
@@ -138,7 +155,7 @@ def get_libpath(lib: str | Path) -> Path:
     libpath = (get_lib() / str(lib.parent) / (prefix + lib.name + suffix)).resolve()
     if not libpath.is_file():
         msg = f"{libpath!s} library not found"
-        raise RuntimeError(msg)
+        raise FileNotFoundError(errno.ENOENT, msg, str(libpath))
     return libpath
 
 
