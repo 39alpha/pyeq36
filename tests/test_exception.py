@@ -7,7 +7,7 @@ import pytest
 from hypothesis import example, given
 from hypothesis import strategies as st
 
-from eq36.exceptions import Eq3Error, Eq6Error, Eq36Error, EqptError, RunCode, TimeoutError
+from eq36.commands import Eq3Error, Eq6Error, Eq36Error, EqptError, RunCode, TimeoutError
 
 ## Each subclass of `Eq36Error` and its default code
 SUBCLASSES: list[tuple[type[Eq36Error], RunCode]] = [
@@ -155,14 +155,14 @@ def test_subclass_with_custom_code(error_type: type[Eq36Error], code: RunCode | 
 
 
 def test_timeouterror_is_a_builtin_timeouterror() -> None:
-    """Ensure that `eq36.exceptions.TimeoutError` is caught as the built-in `TimeoutError`."""
+    """Ensure that `eq36.commands.TimeoutError` is caught as the built-in `TimeoutError`."""
     with pytest.raises(builtins.TimeoutError):
         raise TimeoutError
 
 
 def test_timeouterror_is_an_oserror() -> None:
     """
-    Ensure that `eq36.exceptions.TimeoutError` is caught as an `OSError`.
+    Ensure that `eq36.commands.TimeoutError` is caught as an `OSError`.
 
     This follows from it being a built-in `TimeoutError`.
     """

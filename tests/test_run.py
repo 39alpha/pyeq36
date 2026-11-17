@@ -1,5 +1,5 @@
 """
-Test the execution of commands via `eq36._run`.
+Test the execution of commands via `eq36.commands._run`.
 
 The Python interpreter running the tests stands in for the EQ3/6 binaries so
 that the output, exit code and runtime of the command can be controlled.
@@ -10,8 +10,7 @@ import sys
 
 import pytest
 
-from eq36 import _run
-from eq36.exceptions import Eq36Error, EqptError, RunCode, TimeoutError
+from eq36.commands import Eq36Error, EqptError, RunCode, TimeoutError, _run
 
 ## A Python script which writes an EQ3/6-style error message to `stdout`
 ERROR_SCRIPT = "print(' * Error - (EQPT/test) Something went wrong.', flush=True)"

@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 import eq36
-from eq36 import eq3nr, eq6, eqpt
-from eq36.exceptions import Eq3Error, Eq6Error, Eq36Error, EqptError
+from eq36 import Eq3Error, Eq6Error, Eq36Error, EqptError, eq3nr, eq6, eqpt
 from eq36.paths import get_execpath
 
 if TYPE_CHECKING:
@@ -19,7 +18,7 @@ if TYPE_CHECKING:
 @pytest.fixture
 def run_args(monkeypatch: pytest.MonkeyPatch) -> list[tuple[tuple[object, ...], dict[str, object]]]:
     """
-    Replace `eq36._run` with a stub which records its arguments.
+    Replace `eq36.commands._run` with a stub which records its arguments.
 
     @param monkeypatch The pytest monkeypatch fixture
 
@@ -31,7 +30,7 @@ def run_args(monkeypatch: pytest.MonkeyPatch) -> list[tuple[tuple[object, ...], 
         calls.append((args, kwargs))
         return b"stdout", b"stderr"
 
-    monkeypatch.setattr(eq36, "_run", stub)
+    monkeypatch.setattr(eq36.commands, "_run", stub)
     return calls
 
 
@@ -40,7 +39,7 @@ def test_eqpt_runs_eqpt(run_args: list[tuple[tuple[object, ...], dict[str, objec
     """
     Ensure that `eqpt` runs the `eqpt` executable on the data0 file with the appropriate options.
 
-    @param run_args    The recorded arguments of calls to `eq36._run`
+    @param run_args    The recorded arguments of calls to `eq36.commands._run`
     @param error_check Whether or not to check `stdout` for error messages
     """
     data0 = Path("data0")
@@ -66,7 +65,7 @@ def test_eq3nr_and_eq6_run_executable(
     """
     Ensure that `eq3nr` and `eq6` run their executable on the data1 and input files with the appropriate options.
 
-    @param run_args   The recorded arguments of calls to `eq36._run`
+    @param run_args   The recorded arguments of calls to `eq36.commands._run`
     @param command    The function under test
     @param executable The name of the executable that `command` should run
     @param error_type The type of error that `command` should raise

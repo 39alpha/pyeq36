@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from eq36 import _error_guard
-from eq36.exceptions import Eq3Error, Eq6Error, Eq36Error, EqptError, RunCode
+from eq36.commands import Eq3Error, Eq6Error, Eq36Error, EqptError, RunCode, _error_guard
 
 ## The `stdout` of `eqpt` when run on a data0 file that does not exist
 MISSING_FILE_OUTPUT = b'\n * Error - (EQLIBU/openin) The file "nope.d0"\n       does not exist.\n'
