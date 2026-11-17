@@ -32,35 +32,38 @@ def _run(cmd: str) -> None:
     the executable.
 
     If the executable resolves to the running script, e.g. because `EQ36_BIN`
-    is the directory containing the shims, an error is raised rather than
+    is the directory containing the shims, the process exits rather than
     endlessly re-running the shim.
 
     @private
 
     @param cmd The name of the command to be run, e.g. `"eq6"`
 
-    @throws FileNotFoundError if the `bin` directory does not exist
-    @throws NotADirectoryError if the `bin` path is not a directory
-    @throws FileNotFoundError if `cmd` is not found in the `bin` directory
-    @throws RuntimeError if `cmd` resolves to the running shim script
-    @throws OSError if the executable cannot be executed
+    @note If `cmd` cannot be run, e.g. the `bin` directory or the executable
+          does not exist, the executable is the running shim, or it cannot be
+          executed, the process exits with status 1, writing a message
+          prefixed with `cmd` to `stderr`. Only `OSError` and `RuntimeError`
+          are handled this way; any other exception propagates.
 
     @warning This function calls `os.execv` which replaces the current running
     process, so it does not return on success. As such, you probably don't
     want to call it from a script unless you're not planning on doing anything
     else.
     """
-    this_script = Path(sys.argv[0]).resolve()
-    target = get_execpath(cmd)
-    if remove_exe(target) == remove_exe(this_script):
-        msg = (
-            f"cannot run the target command {str(target)!r} because it points "
-            "to a shim script; this is likely because EQ36_BIN was set to the "
-            "directory containing the shims"
-        )
-        raise RuntimeError(msg)
+    try:
+        this_script = Path(sys.argv[0]).resolve()
+        target = get_execpath(cmd)
+        if remove_exe(target) == remove_exe(this_script):
+            msg = (
+                f"cannot run the target command {str(target)!r} because it points "
+                "to a shim script; this is likely because EQ36_BIN was set to the "
+                "directory containing the shims"
+            )
+            sys.exit(f"{cmd}: {msg}")
 
-    os.execv(target, sys.argv)
+        os.execv(target, sys.argv)
+    except (OSError, RuntimeError) as err:
+        sys.exit(f"{cmd}: {err}")
 
 
 def eqpt() -> None:
@@ -69,11 +72,8 @@ def eqpt() -> None:
 
     This is the entry point for the `eqpt` script installed with this package.
 
-    @throws FileNotFoundError if the `bin` directory does not exist
-    @throws NotADirectoryError if the `bin` path is not a directory
-    @throws FileNotFoundError if `eqpt` is not found in the `bin` directory
-    @throws RuntimeError if `eqpt` resolves to the running shim script
-    @throws OSError if the executable cannot be executed
+    @note If `eqpt` cannot be run, the process exits with status 1, writing a
+          message to `stderr`; see `_run`.
 
     @warning This function does not return on success; see `_run`.
     """
@@ -86,11 +86,8 @@ def eq3nr() -> None:
 
     This is the entry point for the `eq3nr` script installed with this package.
 
-    @throws FileNotFoundError if the `bin` directory does not exist
-    @throws NotADirectoryError if the `bin` path is not a directory
-    @throws FileNotFoundError if `eq3nr` is not found in the `bin` directory
-    @throws RuntimeError if `eq3nr` resolves to the running shim script
-    @throws OSError if the executable cannot be executed
+    @note If `eq3nr` cannot be run, the process exits with status 1, writing a
+          message to `stderr`; see `_run`.
 
     @warning This function does not return on success; see `_run`.
     """
@@ -103,11 +100,8 @@ def eq6() -> None:
 
     This is the entry point for the `eq6` script installed with this package.
 
-    @throws FileNotFoundError if the `bin` directory does not exist
-    @throws NotADirectoryError if the `bin` path is not a directory
-    @throws FileNotFoundError if `eq6` is not found in the `bin` directory
-    @throws RuntimeError if `eq6` resolves to the running shim script
-    @throws OSError if the executable cannot be executed
+    @note If `eq6` cannot be run, the process exits with status 1, writing a
+          message to `stderr`; see `_run`.
 
     @warning This function does not return on success; see `_run`.
     """

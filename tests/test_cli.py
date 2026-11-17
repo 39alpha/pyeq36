@@ -55,14 +55,110 @@ def test_shim_execs_executable(
     assert execv_args == [(get_execpath(executable), argv)]
 
 
-def test_shim_raises_if_executable_is_missing(execv_args: list[tuple[Path, list[str]]]) -> None:
+@pytest.mark.parametrize(("shim", "executable"), [(cli.eqpt, "eqpt"), (cli.eq3nr, "eq3nr"), (cli.eq6, "eq6")])
+def test_shim_exits_if_executable_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    execv_args: list[tuple[Path, list[str]]],
+    shim: Callable[[], None],
+    executable: str,
+) -> None:
     """
-    Ensure that a `FileNotFoundError` is raised, and the process is not replaced, if the executable is not found.
+    Ensure that each shim exits with a message, and the process is not replaced, if its executable is not found.
 
-    @param execv_args The recorded arguments of calls to `os.execv`
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    An empty temporary directory to use as the `bin` directory
+    @param execv_args  The recorded arguments of calls to `os.execv`
+    @param shim        The shim under test
+    @param executable  The name of the executable that `shim` should run
     """
-    with pytest.raises(FileNotFoundError, match="command not found"):
-        cli._run("not-an-eq36-executable")  # noqa: SLF001
+    monkeypatch.setenv("EQ36_BIN", str(tmp_path))
+    with pytest.raises(SystemExit) as excinfo:
+        shim()
+
+    assert isinstance(excinfo.value.code, str)
+    assert excinfo.value.code.startswith(f"{executable}: ")
+    assert "command not found" in excinfo.value.code
+    assert execv_args == []
+
+
+def test_shim_exits_if_bin_is_not_a_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    execv_args: list[tuple[Path, list[str]]],
+) -> None:
+    """
+    Ensure that a shim exits with a message, and the process is not replaced, if the `bin` path is not a directory.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory containing a file to use as the `bin` directory
+    @param execv_args  The recorded arguments of calls to `os.execv`
+    """
+    (tmp_path / "file").touch()
+    monkeypatch.setenv("EQ36_BIN", str(tmp_path / "file"))
+    with pytest.raises(SystemExit) as excinfo:
+        cli.eqpt()
+
+    assert isinstance(excinfo.value.code, str)
+    assert excinfo.value.code.startswith("eqpt: ")
+    assert "from EQ36_BIN is not a directory" in excinfo.value.code
+    assert execv_args == []
+
+
+def test_shim_exits_if_executable_cannot_be_executed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Ensure that a shim exits with a message if `os.execv` fails.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    """
+
+    def execv(_path: Path, _argv: list[str]) -> None:
+        raise OSError(8, "Exec format error")
+
+    monkeypatch.setattr(cli.os, "execv", execv)
+    with pytest.raises(SystemExit) as excinfo:
+        cli.eqpt()
+
+    assert excinfo.value.code == "eqpt: [Errno 8] Exec format error"
+
+
+def test_shim_exits_on_runtime_error(monkeypatch: pytest.MonkeyPatch, execv_args: list[tuple[Path, list[str]]]) -> None:
+    """
+    Ensure that a shim exits with a message, and the process is not replaced, if a `RuntimeError` is raised.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param execv_args  The recorded arguments of calls to `os.execv`
+    """
+
+    def get_execpath(_cmd: str) -> Path:
+        msg = "something went wrong"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(cli, "get_execpath", get_execpath)
+    with pytest.raises(SystemExit) as excinfo:
+        cli.eqpt()
+
+    assert excinfo.value.code == "eqpt: something went wrong"
+    assert execv_args == []
+
+
+def test_shim_propagates_other_errors(
+    monkeypatch: pytest.MonkeyPatch, execv_args: list[tuple[Path, list[str]]]
+) -> None:
+    """
+    Ensure that a shim does not handle errors other than `OSError` and `RuntimeError`.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param execv_args  The recorded arguments of calls to `os.execv`
+    """
+
+    def get_execpath(_cmd: str) -> Path:
+        msg = "a bug"
+        raise TypeError(msg)
+
+    monkeypatch.setattr(cli, "get_execpath", get_execpath)
+    with pytest.raises(TypeError, match="a bug"):
+        cli.eqpt()
 
     assert execv_args == []
 
@@ -91,14 +187,14 @@ def test_shim_execs_executable_in_eq36_bin(
 
 
 @pytest.mark.parametrize("platform", [sys.platform, "win32"])
-def test_shim_raises_if_executable_is_the_shim(
+def test_shim_exits_if_executable_is_the_shim(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     execv_args: list[tuple[Path, list[str]]],
     platform: str,
 ) -> None:
     """
-    Ensure that a `RuntimeError` is raised, and the process is not replaced, if the executable is the running shim.
+    Ensure that a shim exits with a message, and the process is not replaced, if the executable is the running shim.
 
     This happens if `EQ36_BIN` is the directory containing the shims. On
     Windows, the executable has an `.exe` suffix but the shims strip it from
@@ -114,7 +210,10 @@ def test_shim_raises_if_executable_is_the_shim(
     (tmp_path / f"eqpt{suffix}").touch()
     monkeypatch.setenv("EQ36_BIN", str(tmp_path))
     monkeypatch.setattr(sys, "argv", [str(tmp_path / "eqpt"), "data0"])
-    with pytest.raises(RuntimeError, match="points to a shim script"):
+    with pytest.raises(SystemExit) as excinfo:
         cli.eqpt()
 
+    assert isinstance(excinfo.value.code, str)
+    assert excinfo.value.code.startswith("eqpt: ")
+    assert "points to a shim script" in excinfo.value.code
     assert execv_args == []
