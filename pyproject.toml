@@ -50,8 +50,8 @@ eq6 = "eq36.cli:eq6"
 
 [tool.hatch.build.targets.wheel]
 artifacts=[
-  "*.exe",
-  "!build/*.exe"
+  "src/eq36/bin",
+  "src/eq36/lib",
 ]
 
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
