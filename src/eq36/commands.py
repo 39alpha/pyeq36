@@ -323,54 +323,78 @@ def eqpt(data0: str | Path, timeout: float | None = None, error_check: bool = Tr
     )
 
 
-def eq3nr(data1: str | Path, threei: str | Path, timeout: float | None = None) -> tuple[bytes, bytes]:
+def eq3nr(
+    data1: str | Path,
+    threei: str | Path,
+    timeout: float | None = None,
+    error_check: bool = True,
+) -> tuple[bytes, bytes]:
     """
     Run `eq3nr` on a data1 and a 3i file.
 
     All generated files are left in the current working directory, even if an
     error occurs.
 
-    @param data1   The filepath of an EQ3/6 data1 file
-    @param threei  The filepath of an EQ3NR input (3i) file
-    @param timeout An optional timeout for the command (in seconds)
+    @param data1       The filepath of an EQ3/6 data1 file
+    @param threei      The filepath of an EQ3NR input (3i) file
+    @param timeout     An optional timeout for the command (in seconds)
+    @param error_check Whether or not to check the output of the command for errors
 
     @return A tuple of the `stdout` and `stderr` output of the command
 
-    @throws Eq3Error if `stdout` includes an error message
+    @throws Eq3Error if `stdout` includes an error message and `error_check == True`
     @throws Eq3Error with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
     @throws Eq36TimeoutError if the command times out
     @throws RuntimeError if the `bin` directory does not exist
     @throws RuntimeError if the `eq3nr` executable is not found
     @throws OSError if the executable cannot be executed
-
-    @todo Accept `error_check` to disable the error guard.
     """
-    return _run(get_execpath("eq3nr"), str(data1), str(threei), timeout=timeout, fname=threei, error_type=Eq3Error)
+    return _run(
+        get_execpath("eq3nr"),
+        str(data1),
+        str(threei),
+        timeout=timeout,
+        fname=threei,
+        error_type=Eq3Error,
+        error_check=error_check,
+    )
 
 
-def eq6(data1: str | Path, sixi: str | Path, timeout: float | None = None) -> tuple[bytes, bytes]:
+def eq6(
+    data1: str | Path,
+    sixi: str | Path,
+    timeout: float | None = None,
+    error_check: bool = True,
+) -> tuple[bytes, bytes]:
     """
     Run `eq6` on a data1 and a 6i file.
 
     All generated files are left in the current working directory, even if an
     error occurs.
 
-    @param data1   The filepath of an EQ3/6 data1 file
-    @param sixi    The filepath of an EQ6 input (6i) file
-    @param timeout An optional timeout for the command (in seconds)
+    @param data1       The filepath of an EQ3/6 data1 file
+    @param sixi        The filepath of an EQ6 input (6i) file
+    @param timeout     An optional timeout for the command (in seconds)
+    @param error_check Whether or not to check the output of the command for errors
 
     @return A tuple of the `stdout` and `stderr` output of the command
 
-    @throws Eq6Error if `stdout` includes an error message
+    @throws Eq6Error if `stdout` includes an error message and `error_check == True`
     @throws Eq6Error with the process' exit code if the command exits with a non-zero exit code (e.g. segfaults)
     @throws Eq36TimeoutError if the command times out
     @throws RuntimeError if the `bin` directory does not exist
     @throws RuntimeError if the `eq6` executable is not found
     @throws OSError if the executable cannot be executed
-
-    @todo Accept `error_check` to disable the error guard.
     """
-    return _run(get_execpath("eq6"), str(data1), str(sixi), timeout=timeout, fname=sixi, error_type=Eq6Error)
+    return _run(
+        get_execpath("eq6"),
+        str(data1),
+        str(sixi),
+        timeout=timeout,
+        fname=sixi,
+        error_type=Eq6Error,
+        error_check=error_check,
+    )
 
 
 __all__ = [

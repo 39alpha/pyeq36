@@ -52,6 +52,7 @@ def test_eqpt_runs_eqpt(run_args: list[tuple[tuple[object, ...], dict[str, objec
     ]
 
 
+@pytest.mark.parametrize("error_check", [True, False])
 @pytest.mark.parametrize(
     ("command", "executable", "error_type"),
     [(eq3nr, "eq3nr", Eq3Error), (eq6, "eq6", Eq6Error)],
@@ -61,23 +62,47 @@ def test_eq3nr_and_eq6_run_executable(
     command: Callable[..., tuple[bytes, bytes]],
     executable: str,
     error_type: type[Eq36Error],
+    *,
+    error_check: bool,
 ) -> None:
     """
     Ensure that `eq3nr` and `eq6` run their executable on the data1 and input files with the appropriate options.
 
-    @param run_args   The recorded arguments of calls to `eq36.commands._run`
-    @param command    The function under test
-    @param executable The name of the executable that `command` should run
-    @param error_type The type of error that `command` should raise
+    @param run_args    The recorded arguments of calls to `eq36.commands._run`
+    @param command     The function under test
+    @param executable  The name of the executable that `command` should run
+    @param error_type  The type of error that `command` should raise
+    @param error_check Whether or not to check `stdout` for error messages
     """
     data1, inputfile = Path("data1"), Path("input")
-    assert command(data1, inputfile, timeout=10) == (b"stdout", b"stderr")
+    assert command(data1, inputfile, timeout=10, error_check=error_check) == (b"stdout", b"stderr")
     assert run_args == [
         (
             (get_execpath(executable), "data1", "input"),
-            {"timeout": 10, "fname": inputfile, "error_type": error_type},
+            {"timeout": 10, "fname": inputfile, "error_type": error_type, "error_check": error_check},
         ),
     ]
+
+
+@pytest.mark.parametrize(
+    ("command", "args"), [(eqpt, ("data0",)), (eq3nr, ("data1", "input")), (eq6, ("data1", "input"))]
+)
+def test_commands_check_errors_by_default(
+    run_args: list[tuple[tuple[object, ...], dict[str, object]]],
+    command: Callable[..., tuple[bytes, bytes]],
+    args: tuple[str, ...],
+) -> None:
+    """
+    Ensure that `eqpt`, `eq3nr` and `eq6` check the output of their executable for errors by default.
+
+    @param run_args The recorded arguments of calls to `eq36.commands._run`
+    @param command  The function under test
+    @param args     The files to pass to `command`
+    """
+    _ = command(*args)
+
+    assert len(run_args) == 1
+    assert run_args[0][1]["error_check"] is True
 
 
 @pytest.mark.parametrize(
@@ -115,3 +140,31 @@ def test_commands_raise_on_missing_file(
     assert type(excinfo.value) is error_type
     assert excinfo.value.code == error_type().code
     assert str(excinfo.value).endswith(f" in file {args[-1]!r}")
+
+
+@pytest.mark.parametrize(
+    ("command", "args"),
+    [(eqpt, ("nope.d0",)), (eq3nr, ("nope.d1", "nope.3i")), (eq6, ("nope.d1", "nope.6i"))],
+)
+def test_commands_ignore_errors_without_error_check(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    command: Callable[..., tuple[bytes, bytes]],
+    args: tuple[str, ...],
+) -> None:
+    """
+    Ensure that the EQ3/6 binaries' error messages are not raised if `error_check` is `False`.
+
+    The binaries are run in a temporary directory on files that do not exist.
+    They report the missing file in `stdout` but exit successfully, so the
+    output is returned.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory in which to run the command
+    @param command     The function under test
+    @param args        The (missing) files to pass to `command`
+    """
+    monkeypatch.chdir(tmp_path)
+    stdout, _ = command(*args, timeout=30, error_check=False)
+
+    assert f'The file "{args[0]}"'.encode() in stdout
