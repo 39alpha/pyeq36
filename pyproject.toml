@@ -70,7 +70,7 @@ artifacts = ["eqpt", "eqpt.exe", "eq3nr", "eq3nr.exe", "eq6", "eq6.exe"]
 
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
 commands = [
-  'meson setup --reconfigure --buildtype=release build/pyeq36',
+  'meson setup --reconfigure --buildtype=release build/pyeq36 libpyeq36',
 ]
 artifacts = []
 
@@ -109,6 +109,8 @@ test = [
 cache-keys = [
   { file = "pyproject.toml" },
   { file = "hatch_build.py" },
+  { file = "libpyeq36/meson.build" },
+  { file = "libpyeq36/*.f90" },
   { file = "eq36/meson.build" },
   { file = "eq36/src/**/*.f90" },
 ]
