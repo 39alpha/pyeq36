@@ -1,4 +1,4 @@
-# ruff: noqa: SLF001, PLR0915
+# ruff: noqa: PLR0915
 """
 Provide a thin wrapper around libpyeq36.
 
@@ -6,192 +6,268 @@ The shared library is located with `eq36.paths.get_libpath` and loaded when
 this module is imported. The Fortran subroutines are called through `ctypes`
 using their gfortran-mangled module symbol names.
 
-@todo Loading the library at import time means that importing `eq36.libpyeq36`
-      (or `eq36.data1`) raises `FileNotFoundError` if the library is missing.
-      Consider loading it lazily.
+If the library cannot be found or loaded, or lacks one of the subroutines,
+importing this module (or `eq36.data1`) raises an `ImportError` caused by the
+original error.
 """
+
+from __future__ import annotations
 
 from ctypes import CDLL, POINTER, byref, c_bool, c_char_p, c_double, c_int, c_size_t, create_string_buffer
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from eq36.paths import get_libpath
-from eq36.typing import Array1D, Array2D
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+    from pathlib import Path
+
+    from eq36.typing import Array1D, Array2D
+
+
+def _load_lib() -> CDLL:
+    """
+    Locate and load the `libpyeq36` shared library.
+
+    @private
+
+    @return The loaded library
+
+    @throws ImportError if the library cannot be found, caused by the
+            `FileNotFoundError` or `NotADirectoryError` from `get_libpath`
+    @throws ImportError if the library cannot be loaded, e.g. a dependency
+            such as `libgfortran` is missing, caused by the `OSError` from
+            `CDLL`
+    """
+    try:
+        return CDLL(str(get_libpath("pyeq36")))
+    except OSError as err:
+        msg = "could not load libpyeq36"
+        raise ImportError(msg) from err
+
+
+def _load_symbol(
+    lib: CDLL,
+    name: str,
+    argtypes: Sequence[type],
+    restype: type | None,
+) -> Callable[..., None]:
+    """
+    Look up a subroutine in a library and set its argument and return types.
+
+    @private
+
+    @param lib      The library in which to look up the subroutine
+    @param name     The (mangled) symbol name of the subroutine
+    @param argtypes The `ctypes` types of the subroutine's arguments
+    @param restype  The `ctypes` type of the subroutine's return value, or
+                    `None` for a subroutine
+
+    @return The subroutine, with `argtypes` and `restype` set
+
+    @throws ImportError if `lib` has no symbol `name`, e.g. because it was
+            built with different name mangling, caused by the `AttributeError`
+            from the lookup
+    """
+    try:
+        symbol = lib[name]
+    except AttributeError as err:
+        msg = f"libpyeq36 has no symbol {name!r}"
+        raise ImportError(msg) from err
+
+    symbol.argtypes = argtypes
+    symbol.restype = restype
+
+    return symbol
+
 
 ## The loaded `libpyeq36` shared library
-_libeq36 = CDLL(str(get_libpath("pyeq36")))
+_libeq36 = _load_lib()
 
 ## The `openin` subroutine, which opens a data1 file and returns its logical unit
-_open_data1 = _libeq36.__pyeq36_data1_MOD_openin
-_open_data1.argtypes = [c_char_p, POINTER(c_int), POINTER(c_int), c_size_t]
-_open_data1.restype = None
+_open_data1 = _load_symbol(
+    lib=_libeq36,
+    name="__pyeq36_data1_MOD_openin",
+    argtypes=[c_char_p, POINTER(c_int), POINTER(c_int), c_size_t],
+    restype=None,
+)
 
 ## The `closein` subroutine, which closes a logical unit
-_close_data1 = _libeq36.__pyeq36_data1_MOD_closein
-_close_data1.argtypes = [POINTER(c_int)]
-_close_data1.restype = None
+_close_data1 = _load_symbol(
+    lib=_libeq36,
+    name="__pyeq36_data1_MOD_closein",
+    argtypes=[POINTER(c_int)],
+    restype=None,
+)
 
 ## The `indath` subroutine, which reads the header (array allocation sizes) of a data1 file
-_read_header = _libeq36.__pyeq36_data1_MOD_indath
-_read_header.argtypes = [
-    POINTER(c_int),  # data1,
-    POINTER(c_int),  # ikta_asv,
-    POINTER(c_int),  # ipbt_asv,
-    POINTER(c_int),  # ipch_asv,
-    POINTER(c_int),  # ipcv_asv,
-    POINTER(c_int),  # jpfc_asv,
-    POINTER(c_int),  # napa_asv,
-    POINTER(c_int),  # narx_asv,
-    POINTER(c_int),  # nata_asv,
-    POINTER(c_int),  # nbta_asv,
-    POINTER(c_int),  # ncta_asv,
-    POINTER(c_int),  # ngta_asv,
-    POINTER(c_int),  # nlta_asv,
-    POINTER(c_int),  # nmta_asv,
-    POINTER(c_int),  # npta_asv,
-    POINTER(c_int),  # nmuta_asv,
-    POINTER(c_int),  # nslta_asv,
-    POINTER(c_int),  # nsta_asv,
-    POINTER(c_int),  # ntid_asv,
-    POINTER(c_int),  # ntpr_asv,
-    POINTER(c_int),  # nxta_asv,
-    c_char_p,  # udakey,
-    POINTER(c_int),  # errno,
-]
-_read_header.restype = None
+_read_header = _load_symbol(
+    lib=_libeq36,
+    name="__pyeq36_data1_MOD_indath",
+    argtypes=[
+        POINTER(c_int),  # data1,
+        POINTER(c_int),  # ikta_asv,
+        POINTER(c_int),  # ipbt_asv,
+        POINTER(c_int),  # ipch_asv,
+        POINTER(c_int),  # ipcv_asv,
+        POINTER(c_int),  # jpfc_asv,
+        POINTER(c_int),  # napa_asv,
+        POINTER(c_int),  # narx_asv,
+        POINTER(c_int),  # nata_asv,
+        POINTER(c_int),  # nbta_asv,
+        POINTER(c_int),  # ncta_asv,
+        POINTER(c_int),  # ngta_asv,
+        POINTER(c_int),  # nlta_asv,
+        POINTER(c_int),  # nmta_asv,
+        POINTER(c_int),  # npta_asv,
+        POINTER(c_int),  # nmuta_asv,
+        POINTER(c_int),  # nslta_asv,
+        POINTER(c_int),  # nsta_asv,
+        POINTER(c_int),  # ntid_asv,
+        POINTER(c_int),  # ntpr_asv,
+        POINTER(c_int),  # nxta_asv,
+        c_char_p,  # udakey,
+        POINTER(c_int),  # errno,
+    ],
+    restype=None,
+)
 
 ## The `indata` subroutine, which reads the body of a data1 file
-_read_body = _libeq36.__pyeq36_data1_MOD_indata
-_read_body.argtypes = [
-    POINTER(c_int),  # byref(data1),
-    POINTER(c_double),  # aadh.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # aadhh.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # aadhv.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # aaphi.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # abdh.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # abdhh.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # abdhv.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # abdot.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # abdoth.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # abdotv.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # adadhh.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # adadhv.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # adbdhh.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # adbdhv.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # adbdth.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # adbdtv.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # adhfe.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # adhfsa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # advfe.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # advfsa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # amua.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # aprehw.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # apresg.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # apxa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # aslma.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # atwta.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # axhfe.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # axhfsa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # axlke.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # axlksa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # axvfe.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # axvfsa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # azeroa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # bpxa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # cco2.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # cdrsa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # cessa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_int),  # byref(iapxa_asv)
-    POINTER(c_int),  # iapxta.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(iaqsla)
-    POINTER(c_int),  # byref(ibpxa_asv)
-    POINTER(c_int),  # ibpxta.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(ielam)
-    POINTER(c_int),  # byref(igas)
-    POINTER(c_int),  # byref(ikta_asv)
-    POINTER(c_int),  # insgfa.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(ipbt_asv)
-    POINTER(c_int),  # byref(ipch)
-    POINTER(c_int),  # byref(ipch_asv)
-    POINTER(c_int),  # byref(ipcv)
-    POINTER(c_int),  # byref(ipcv_asv)
-    POINTER(c_int),  # byref(ixrn1a)
-    POINTER(c_int),  # byref(ixrn2a)
-    POINTER(c_int),  # byref(jpdblo)
-    POINTER(c_int),  # byref(jpfc_asv)
-    POINTER(c_int),  # byref(jptffl)
-    POINTER(c_int),  # jsola.ctypes.data_as(POINTER(c_int))
-    POINTER(c_double),  # mwtspa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_int),  # nalpaa.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(napa_asv)
-    POINTER(c_int),  # byref(napta)
-    POINTER(c_int),  # byref(narn1a)
-    POINTER(c_int),  # byref(narn2a)
-    POINTER(c_int),  # byref(narx_asv)
-    POINTER(c_int),  # narxt.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(nata)
-    POINTER(c_int),  # byref(nata_asv)
-    POINTER(c_int),  # nbaspa.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(nbta)
-    POINTER(c_int),  # byref(nbta_asv)
-    POINTER(c_int),  # byref(nbtafd)
-    POINTER(c_int),  # byref(nbta1_asv)
-    POINTER(c_int),  # ncmpra.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(ncta)
-    POINTER(c_int),  # byref(ncta_asv)
-    POINTER(c_int),  # ndrsa.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(ndrsa_asv)
-    POINTER(c_int),  # ndrsra.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # nessa.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(nessa_asv)
-    POINTER(c_int),  # nessra.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(ngrn1a)
-    POINTER(c_int),  # byref(ngrn2a)
-    POINTER(c_int),  # byref(ngta)
-    POINTER(c_int),  # byref(nlrn1a)
-    POINTER(c_int),  # byref(nlrn2a)
-    POINTER(c_int),  # byref(nlta)
-    POINTER(c_int),  # byref(nmrn1a)
-    POINTER(c_int),  # byref(nmrn2a)
-    POINTER(c_int),  # byref(nmta)
-    POINTER(c_int),  # byref(nmuta)
-    POINTER(c_int),  # byref(nmuta_asv)
-    POINTER(c_int),  # nmuxa.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(npta)
-    POINTER(c_int),  # byref(npta_asv)
-    POINTER(c_int),  # byref(nslta)
-    POINTER(c_int),  # byref(nslta_asv)
-    POINTER(c_int),  # nslxa.ctypes.data_as(POINTER(c_int))
-    POINTER(c_int),  # byref(nsta)
-    POINTER(c_int),  # byref(nsta_asv)
-    POINTER(c_int),  # byref(ntid_asv)
-    POINTER(c_int),  # byref(ntitld)
-    POINTER(c_int),  # byref(ntpr_asv)
-    POINTER(c_int),  # byref(ntprt)
-    POINTER(c_int),  # byref(nxrn1a)
-    POINTER(c_int),  # byref(nxrn2a)
-    POINTER(c_int),  # byref(nxta)
-    POINTER(c_int),  # byref(nxta_asv)
-    POINTER(c_bool),  # qclnsa.ctypes.data_as(POINTER(c_bool))
-    POINTER(c_double),  # palpaa.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # byref(tdamax)
-    POINTER(c_double),  # byref(tdamin)
-    POINTER(c_double),  # tempcu.ctypes.data_as(POINTER(c_double))
-    POINTER(c_char_p),  # ubasp.ctypes.data_as(POINTER(c_char_p))
-    c_char_p,  # udakey
-    c_char_p,  # udatfi
-    POINTER(c_char_p),  # uelema.ctypes.data_as(POINTER(c_char_p))
-    POINTER(c_char_p),  # uspeca.ctypes.data_as(POINTER(c_char_p))
-    POINTER(c_char_p),  # uphasa.ctypes.data_as(POINTER(c_char_p))
-    POINTER(c_char_p),  # uptypa.ctypes.data_as(POINTER(c_char_p))
-    POINTER(c_char_p),  # utitld.ctypes.data_as(POINTER(c_char_p))
-    POINTER(c_double),  # vosp0a.ctypes.data_as(POINTER(c_double))
-    POINTER(c_double),  # zchara.ctypes.data_as(POINTER(c_double))
-    POINTER(c_int),  # byref(errno)
-]
-_read_body.restype = None
+_read_body = _load_symbol(
+    lib=_libeq36,
+    name="__pyeq36_data1_MOD_indata",
+    argtypes=[
+        POINTER(c_int),  # byref(data1),
+        POINTER(c_double),  # aadh.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # aadhh.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # aadhv.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # aaphi.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # abdh.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # abdhh.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # abdhv.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # abdot.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # abdoth.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # abdotv.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # adadhh.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # adadhv.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # adbdhh.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # adbdhv.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # adbdth.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # adbdtv.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # adhfe.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # adhfsa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # advfe.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # advfsa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # amua.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # aprehw.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # apresg.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # apxa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # aslma.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # atwta.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # axhfe.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # axhfsa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # axlke.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # axlksa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # axvfe.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # axvfsa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # azeroa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # bpxa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # cco2.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # cdrsa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # cessa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_int),  # byref(iapxa_asv)
+        POINTER(c_int),  # iapxta.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(iaqsla)
+        POINTER(c_int),  # byref(ibpxa_asv)
+        POINTER(c_int),  # ibpxta.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(ielam)
+        POINTER(c_int),  # byref(igas)
+        POINTER(c_int),  # byref(ikta_asv)
+        POINTER(c_int),  # insgfa.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(ipbt_asv)
+        POINTER(c_int),  # byref(ipch)
+        POINTER(c_int),  # byref(ipch_asv)
+        POINTER(c_int),  # byref(ipcv)
+        POINTER(c_int),  # byref(ipcv_asv)
+        POINTER(c_int),  # byref(ixrn1a)
+        POINTER(c_int),  # byref(ixrn2a)
+        POINTER(c_int),  # byref(jpdblo)
+        POINTER(c_int),  # byref(jpfc_asv)
+        POINTER(c_int),  # byref(jptffl)
+        POINTER(c_int),  # jsola.ctypes.data_as(POINTER(c_int))
+        POINTER(c_double),  # mwtspa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_int),  # nalpaa.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(napa_asv)
+        POINTER(c_int),  # byref(napta)
+        POINTER(c_int),  # byref(narn1a)
+        POINTER(c_int),  # byref(narn2a)
+        POINTER(c_int),  # byref(narx_asv)
+        POINTER(c_int),  # narxt.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(nata)
+        POINTER(c_int),  # byref(nata_asv)
+        POINTER(c_int),  # nbaspa.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(nbta)
+        POINTER(c_int),  # byref(nbta_asv)
+        POINTER(c_int),  # byref(nbtafd)
+        POINTER(c_int),  # byref(nbta1_asv)
+        POINTER(c_int),  # ncmpra.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(ncta)
+        POINTER(c_int),  # byref(ncta_asv)
+        POINTER(c_int),  # ndrsa.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(ndrsa_asv)
+        POINTER(c_int),  # ndrsra.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # nessa.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(nessa_asv)
+        POINTER(c_int),  # nessra.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(ngrn1a)
+        POINTER(c_int),  # byref(ngrn2a)
+        POINTER(c_int),  # byref(ngta)
+        POINTER(c_int),  # byref(nlrn1a)
+        POINTER(c_int),  # byref(nlrn2a)
+        POINTER(c_int),  # byref(nlta)
+        POINTER(c_int),  # byref(nmrn1a)
+        POINTER(c_int),  # byref(nmrn2a)
+        POINTER(c_int),  # byref(nmta)
+        POINTER(c_int),  # byref(nmuta)
+        POINTER(c_int),  # byref(nmuta_asv)
+        POINTER(c_int),  # nmuxa.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(npta)
+        POINTER(c_int),  # byref(npta_asv)
+        POINTER(c_int),  # byref(nslta)
+        POINTER(c_int),  # byref(nslta_asv)
+        POINTER(c_int),  # nslxa.ctypes.data_as(POINTER(c_int))
+        POINTER(c_int),  # byref(nsta)
+        POINTER(c_int),  # byref(nsta_asv)
+        POINTER(c_int),  # byref(ntid_asv)
+        POINTER(c_int),  # byref(ntitld)
+        POINTER(c_int),  # byref(ntpr_asv)
+        POINTER(c_int),  # byref(ntprt)
+        POINTER(c_int),  # byref(nxrn1a)
+        POINTER(c_int),  # byref(nxrn2a)
+        POINTER(c_int),  # byref(nxta)
+        POINTER(c_int),  # byref(nxta_asv)
+        POINTER(c_bool),  # qclnsa.ctypes.data_as(POINTER(c_bool))
+        POINTER(c_double),  # palpaa.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # byref(tdamax)
+        POINTER(c_double),  # byref(tdamin)
+        POINTER(c_double),  # tempcu.ctypes.data_as(POINTER(c_double))
+        POINTER(c_char_p),  # ubasp.ctypes.data_as(POINTER(c_char_p))
+        c_char_p,  # udakey
+        c_char_p,  # udatfi
+        POINTER(c_char_p),  # uelema.ctypes.data_as(POINTER(c_char_p))
+        POINTER(c_char_p),  # uspeca.ctypes.data_as(POINTER(c_char_p))
+        POINTER(c_char_p),  # uphasa.ctypes.data_as(POINTER(c_char_p))
+        POINTER(c_char_p),  # uptypa.ctypes.data_as(POINTER(c_char_p))
+        POINTER(c_char_p),  # utitld.ctypes.data_as(POINTER(c_char_p))
+        POINTER(c_double),  # vosp0a.ctypes.data_as(POINTER(c_double))
+        POINTER(c_double),  # zchara.ctypes.data_as(POINTER(c_double))
+        POINTER(c_int),  # byref(errno)
+    ],
+    restype=None,
+)
 
 
 @dataclass

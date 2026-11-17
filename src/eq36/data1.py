@@ -4,6 +4,10 @@ Provide the Data1 class to represent the parsed contents of a data1 file.
 
 Also provided are the species, solid solution and temperature-pressure curve
 types from which a `Data1` is built.
+
+@note Importing this module imports `eq36.libpyeq36`, which loads the
+      `libpyeq36` shared library, so it raises an `ImportError` if the library
+      cannot be loaded.
 """
 
 from __future__ import annotations
