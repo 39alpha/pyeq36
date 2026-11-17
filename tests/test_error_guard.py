@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from eq36 import Eq36Error, RunCode, _error_guard
+from eq36 import _error_guard
+from eq36.exceptions import Eq3Error, Eq6Error, Eq36Error, EqptError, RunCode
 
 ## The `stdout` of `eqpt` when run on a data0 file that does not exist
 MISSING_FILE_OUTPUT = b'\n * Error - (EQLIBU/openin) The file "nope.d0"\n       does not exist.\n'
@@ -17,7 +18,7 @@ def test_error_guard_ignores_output_without_errors(output: bytes | str) -> None:
 
     @param output Command output without an error message
     """
-    _error_guard(output, "cmd", code=RunCode.EQPT_ERROR)
+    _error_guard(output, "cmd", error_type=EqptError)
 
 
 @pytest.mark.parametrize("output", [MISSING_FILE_OUTPUT, MISSING_FILE_OUTPUT.decode("utf-8")])
@@ -31,23 +32,28 @@ def test_error_guard_raises_on_error(output: bytes | str) -> None:
     @param output Command output containing an error message
     """
     with pytest.raises(Eq36Error) as excinfo:
-        _error_guard(output, "eqpt", code=RunCode.EQPT_ERROR)
+        _error_guard(output, "eqpt", error_type=EqptError)
 
     assert str(excinfo.value).startswith('eqpt - (EQLIBU/openin) The file "nope.d0" does not exist.')
     assert "\n" not in str(excinfo.value)
 
 
-@pytest.mark.parametrize("code", [None, 5, RunCode.EQ3_ERROR])
-def test_error_guard_uses_code(code: RunCode | int | None) -> None:
+@pytest.mark.parametrize(
+    ("error_type", "code"),
+    [(Eq36Error, 1), (EqptError, RunCode.EQPT_ERROR), (Eq3Error, RunCode.EQ3_ERROR), (Eq6Error, RunCode.EQ6_ERROR)],
+)
+def test_error_guard_uses_error_type(error_type: type[Eq36Error], code: RunCode | int) -> None:
     """
-    Ensure that the raised error carries the provided code, or `1` if none is provided.
+    Ensure that the raised error is of the provided type and carries that type's default code.
 
-    @param code The code to pass to `_error_guard`
+    @param error_type The type of error to pass to `_error_guard`
+    @param code       The default code of `error_type`
     """
-    with pytest.raises(Eq36Error) as excinfo:
-        _error_guard(MISSING_FILE_OUTPUT, "eqpt", code=code)
+    with pytest.raises(error_type) as excinfo:
+        _error_guard(MISSING_FILE_OUTPUT, "eqpt", error_type)
 
-    assert excinfo.value.code == (code if code is not None else 1)
+    assert type(excinfo.value) is error_type
+    assert excinfo.value.code == code
 
 
 @pytest.mark.parametrize("fname", ["nope.d0", Path("nope.d0")])
@@ -58,7 +64,7 @@ def test_error_guard_includes_filename(fname: str | Path) -> None:
     @param fname The filename to pass to `_error_guard`
     """
     with pytest.raises(Eq36Error) as excinfo:
-        _error_guard(MISSING_FILE_OUTPUT, "eqpt", code=RunCode.EQPT_ERROR, fname=fname)
+        _error_guard(MISSING_FILE_OUTPUT, "eqpt", error_type=EqptError, fname=fname)
 
     assert str(excinfo.value).endswith(f" in file {str(fname)!r}")
 
@@ -67,7 +73,7 @@ def test_error_guard_raises_first_error() -> None:
     """Ensure that only the first of several error messages is included in the raised error."""
     output = b"\n * Error - (EQPT/first) The first error.\n\n * Error - (EQPT/second) The second error.\n"
     with pytest.raises(Eq36Error) as excinfo:
-        _error_guard(output, "eqpt", code=RunCode.EQPT_ERROR)
+        _error_guard(output, "eqpt", error_type=EqptError)
 
     assert "first error" in str(excinfo.value)
     assert "second error" not in str(excinfo.value)
@@ -77,7 +83,7 @@ def test_error_guard_skips_empty_errors() -> None:
     """Ensure that error messages without content are skipped in favor of the first non-empty message."""
     output = b"\n * Error - \n\n * Error - (EQPT/real) The real error.\n"
     with pytest.raises(Eq36Error) as excinfo:
-        _error_guard(output, "eqpt", code=RunCode.EQPT_ERROR)
+        _error_guard(output, "eqpt", error_type=EqptError)
 
     assert str(excinfo.value) == "eqpt - (EQPT/real) The real error."
 
@@ -89,4 +95,4 @@ def test_error_guard_ignores_only_empty_errors(output: bytes) -> None:
 
     @param output Command output containing only empty error messages
     """
-    _error_guard(output, "eqpt", code=RunCode.EQPT_ERROR)
+    _error_guard(output, "eqpt", error_type=EqptError)

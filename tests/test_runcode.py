@@ -2,7 +2,7 @@
 
 import pytest
 
-from eq36 import RunCode
+from eq36.exceptions import RunCode
 
 
 def test_runcode_from_invalid_int() -> None:
