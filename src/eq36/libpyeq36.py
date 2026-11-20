@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import errno
 import os
+import sys
 from ctypes import CDLL, POINTER, byref, c_bool, c_char_p, c_double, c_int, c_size_t, create_string_buffer
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -361,6 +362,7 @@ def read_data1(filename: str | Path) -> Data:
 
     @return The parsed data
 
+    @throws UnicodeEncodeError if the filename cannot be encoded
     @throws FileNotFoundError if the file does not exist
     @throws OSError    if the file exists but cannot be opened, with
             `errno.EIO`
@@ -373,7 +375,7 @@ def read_data1(filename: str | Path) -> Data:
     @todo This function is long enough to need `noqa: PLR0915`; consider
           splitting allocation and the `indata` call into helpers.
     """
-    fname = os.fsencode(filename)
+    fname = str(filename).encode("mbcs") if sys.platform.startswith("win") else os.fsencode(filename)
     data1 = c_int(0)
     errnum = c_int(0)
 

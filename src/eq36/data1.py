@@ -389,6 +389,8 @@ class Data1:
 
         @return The parsed data file
 
+        @throws UnicodeEncodeError if the filename cannot be encoded (see
+                `read_data1`)
         @throws OSError      if `read_data1` cannot open the file (see
                 `read_data1` for the specific types)
         @throws eq36.libpyeq36.Data1Error if `read_data1` finds that the file

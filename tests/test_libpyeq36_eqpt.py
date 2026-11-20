@@ -16,6 +16,7 @@ import pytest
 
 from eq36.libpyeq36 import Data, read_data1
 
+from .ansi import NON_ASCII, requires_non_ascii
 from .eqpt_reference import D1F, DATA_DIR, NAME_WIDTH, REL_10SF, TOL_3DP, TOL_5DP, Species
 
 if TYPE_CHECKING:
@@ -175,18 +176,20 @@ def test_reads_solid_solution_end_members(data: Data, d1f: D1F) -> None:
     assert pairs == [(member, name) for name, members in d1f.solid_solutions.items() for member in members]
 
 
+@requires_non_ascii
 def test_reads_file_with_non_ascii_path(tmp_path: Path, database: str, data: Data) -> None:
     """
     Ensure that a data1 file is read the same way through a path containing non-ASCII characters.
 
     The file is copied into a directory with a non-ASCII name, so the encoded
-    path must be opened by the Fortran runtime.
+    path must be opened by the Fortran runtime. On Windows, the test is skipped
+    if the ANSI code page cannot represent the path.
 
     @param tmp_path A temporary directory in which to copy the data1 file
     @param database The name of the database
     @param data     The data read from the original path
     """
-    path = tmp_path / "μ" / f"{database}.d1"
+    path = tmp_path / NON_ASCII / f"{database}.d1"
     path.parent.mkdir()
     _ = shutil.copy(DATA_DIR / f"{database}.d1", path)
 

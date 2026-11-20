@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import errno
 import os
+import sys
 from ctypes import ArgumentError
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,8 @@ import pytest
 
 from eq36 import libpyeq36
 from eq36.libpyeq36 import Data1Error, read_data1
+
+from .ansi import NON_ASCII, ansi_encodable, requires_non_ascii
 
 if TYPE_CHECKING:
     from ctypes import c_int
@@ -277,18 +280,50 @@ def test_data1_error_is_a_value_error() -> None:
     assert issubclass(Data1Error, ValueError)
 
 
-@pytest.mark.parametrize("filename", ["ok.d1", "μ.d1", Path("μ.d1")])
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "ok.d1",
+        pytest.param(f"{NON_ASCII}.d1", marks=requires_non_ascii),
+        pytest.param(Path(f"{NON_ASCII}.d1"), marks=requires_non_ascii),
+    ],
+)
 def test_read_data1_encodes_filename(natives: Natives, filename: str | Path) -> None:
     """
-    Ensure that `read_data1` passes the filename to `_open_data1` encoded with `os.fsencode`, with its length in bytes.
+    Ensure that `read_data1` passes the encoded filename to `_open_data1`, with its length in bytes.
+
+    The filename is encoded with `os.fsencode`, except on Windows, where it is
+    encoded with the ANSI code page (`mbcs`) used by the Fortran runtime. The
+    non-ASCII filenames are skipped if the ANSI code page cannot represent them.
 
     @param natives  The mocked native subroutines
     @param filename The filename to read, which may contain non-ASCII characters
     """
     _ = read_data1(filename)
 
-    fname = os.fsencode(filename)
+    fname = str(filename).encode("mbcs") if sys.platform.startswith("win") else os.fsencode(filename)
     natives.open_data1.assert_called_once()
     args = natives.open_data1.call_args.args
     assert args[0] == fname
     assert args[-1] == len(fname)
+
+
+## A filename which only a UTF-8 ANSI code page can represent
+UNENCODABLE = "\N{GRINNING FACE}.d1"
+
+
+@pytest.mark.skipif(not sys.platform.startswith("win"), reason="the ANSI code page is only used on Windows")
+@pytest.mark.skipif(ansi_encodable(UNENCODABLE), reason="the ANSI code page is UTF-8")
+def test_read_data1_raises_on_unencodable_filename(natives: Natives) -> None:
+    """
+    Ensure that `read_data1` raises a `UnicodeEncodeError` on Windows, before opening the file, for an unencodable name.
+
+    The filename contains an emoji, which no ANSI code page other than UTF-8
+    (code page 65001) can represent.
+
+    @param natives The mocked native subroutines
+    """
+    with pytest.raises(UnicodeEncodeError):
+        _ = read_data1(UNENCODABLE)
+
+    natives.open_data1.assert_not_called()

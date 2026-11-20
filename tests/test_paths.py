@@ -41,7 +41,7 @@ def test_get_bin_raises_if_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 
     assert excinfo.value.errno == errno.ENOENT
     assert excinfo.value.filename == str((tmp_path / "bin").resolve())
-    assert str(excinfo.value).count(excinfo.value.filename) == 1
+    assert str(excinfo.value).count(repr(excinfo.value.filename)) == 1
     assert "EQ36_BIN" not in str(excinfo.value)
 
 
@@ -80,7 +80,7 @@ def test_get_execpath_raises_if_not_found() -> None:
 
     assert excinfo.value.errno == errno.ENOENT
     assert Path(excinfo.value.filename).name.startswith("not-an-eq36-executable")
-    assert str(excinfo.value).count(excinfo.value.filename) == 1
+    assert str(excinfo.value).count(repr(excinfo.value.filename)) == 1
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="the executables are suffixed on windows")
@@ -298,7 +298,7 @@ def test_get_lib_raises_if_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 
     assert excinfo.value.errno == errno.ENOENT
     assert excinfo.value.filename == str((tmp_path / "lib").resolve())
-    assert str(excinfo.value).count(excinfo.value.filename) == 1
+    assert str(excinfo.value).count(repr(excinfo.value.filename)) == 1
 
 
 def test_get_lib_raises_if_not_a_directory(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -403,7 +403,7 @@ def test_get_libpath_raises_if_not_found(lib_dir: Path) -> None:
 
     assert excinfo.value.errno == errno.ENOENT
     assert Path(excinfo.value.filename).parent == lib_dir
-    assert str(excinfo.value).count(excinfo.value.filename) == 1
+    assert str(excinfo.value).count(repr(excinfo.value.filename)) == 1
 
 
 def test_get_libpath_raises_if_lib_is_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
