@@ -1,4 +1,3 @@
-# ruff: noqa: C901,PLR0912,PLR0915
 """
 Provide the Data1 class to represent the parsed contents of a data1 file.
 
@@ -14,18 +13,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar
 
 import numpy as np
 from typing_extensions import Self
 
 from eq36.curves import PiecewisePolynomial, Polynomial
-from eq36.libpyeq36 import Data1Error, read_data1
+from eq36.libpyeq36 import Data, Data1Error, read_data1
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-    from eq36.typing import Array1D
 
 
 def _ascii_decode(raw: bytes, filename: Path) -> str:
@@ -253,6 +250,235 @@ class SolidSolution:
         return molar_mass
 
 
+def _make_elements(data: Data, filename: Path) -> tuple[dict[str, np.float64], list[str]]:
+    """
+    Construct the elements of a data1 file.
+
+    @private
+
+    @param data     The contents of the data1 file, as read by `read_data1`
+    @param filename The path to the data1 file, used in error messages
+
+    @return The atomic weights, keyed by element name, and the element names
+            in the order in which they appear in the file (which the
+            composition element indices refer to)
+
+    @throws eq36.libpyeq36.Data1Error if an element name is not ASCII
+    """
+    element_names: list[str] = []
+    elements: dict[str, np.float64] = {}
+    for raw_name, weight in zip(data.element_names, data.atomic_weights, strict=True):
+        name = _ascii_decode(raw_name, filename)
+        element_names.append(name)
+        elements[name] = weight
+    return elements, element_names
+
+
+def _make_basis_species(data: Data, element_names: list[str], filename: Path) -> dict[str, BasisSpecies]:
+    """
+    Construct the basis species of a data1 file.
+
+    The basis species are the leading species whose corresponding entry of
+    `reaction_coefficients` is zero. The name of each is the first 24
+    characters of its entry. Its composition is read from
+    `composition_ranges`, `composition_element_indices` and
+    `composition_counts`, with the counts converted to integers. Entries for
+    the null element (index 0), which EQ3/6 assigns to species composed of no
+    elements (e.g. `e-`), are skipped, leaving such a species with an empty
+    composition. A zero volume is treated as unknown (`None`).
+
+    @private
+
+    @param data          The contents of the data1 file, as read by
+                         `read_data1`
+    @param element_names The element names, in the order in which they appear
+                         in the file (see `_make_elements`)
+    @param filename      The path to the data1 file, used in error messages
+
+    @return The basis species, keyed by name
+
+    @throws eq36.libpyeq36.Data1Error if a name is not ASCII
+    @throws ValueError if `BasisSpecies` rejects a species
+    """
+    basis_species: dict[str, BasisSpecies] = {}
+    for i, (raw_name, charge, volume) in enumerate(zip(data.species_names, data.charges, data.volumes, strict=True)):
+        if data.reaction_coefficients[i] != 0:
+            break
+
+        name = _ascii_decode(raw_name[:24], filename)
+
+        a = int(data.composition_ranges[0, i])
+        b = int(data.composition_ranges[1, i])
+
+        indices = data.composition_element_indices[a - 1 : b]
+        counts = data.composition_counts[a - 1 : b]
+
+        composition = {
+            element_names[jdx - 1]: int(count)
+            for idx, count in zip(indices, counts, strict=True)
+            if (jdx := int(idx)) != 0
+        }
+
+        basis_species[name] = BasisSpecies(
+            name=name,
+            molar_mass=data.species_molar_weights[i],
+            composition=composition,
+            charge=int(charge),
+            volume=None if volume == 0.0 else volume,
+        )
+    return basis_species
+
+
+def _make_species(
+    data: Data,
+    start: np.int32,
+    stop: np.int32,
+    factory: Callable[..., SpeciesT],
+    filename: Path,
+) -> dict[str, SpeciesT]:
+    """
+    Construct the species in a 1-based, inclusive index range.
+
+    The name of each species is the first 24 characters of its entry.
+
+    @private
+
+    @param data     The contents of the data1 file, as read by `read_data1`
+    @param start    The 1-based index of the first species
+    @param stop     The 1-based index of the last species
+    @param factory  The species type to construct
+    @param filename The path to the data1 file, used in error messages
+
+    @return The species, keyed by name; empty if `start` or `stop` is
+            non-positive
+
+    @throws eq36.libpyeq36.Data1Error if a name is not ASCII
+    @throws ValueError if `factory` rejects a species
+    """
+    result: dict[str, SpeciesT] = {}
+    if int(start) <= 0 or int(stop) <= 0:
+        return result
+
+    for idx in range(int(start) - 1, int(stop)):
+        weight = data.species_molar_weights[idx]
+        name = _ascii_decode(data.species_names[idx][:24], filename)
+        result[name] = factory(name=name, molar_mass=weight)
+    return result
+
+
+def _make_aqueous_species(data: Data, filename: Path) -> dict[str, AqueousSpecies]:
+    """
+    Construct the aqueous species of a data1 file (see `_make_species`).
+
+    @private
+
+    @param data     The contents of the data1 file, as read by `read_data1`
+    @param filename The path to the data1 file, used in error messages
+
+    @return The aqueous species, keyed by name; empty if either end of the aqueous
+            index range is non-positive
+
+    @throws eq36.libpyeq36.Data1Error if a name is not ASCII
+    @throws ValueError if `AqueousSpecies` rejects a species
+    """
+    return _make_species(data, data.first_aqueous_index, data.last_aqueous_index, AqueousSpecies, filename)
+
+
+def _make_mineral_species(data: Data, filename: Path) -> dict[str, Mineral]:
+    """
+    Construct the minerals of a data1 file (see `_make_species`).
+
+    @private
+
+    @param data     The contents of the data1 file, as read by `read_data1`
+    @param filename The path to the data1 file, used in error messages
+
+    @return The minerals, keyed by name; empty if either end of the mineral
+            index range is non-positive
+
+    @throws eq36.libpyeq36.Data1Error if a name is not ASCII
+    @throws ValueError if `Mineral` rejects a species
+    """
+    return _make_species(data, data.first_mineral_index, data.last_mineral_index, Mineral, filename)
+
+
+def _make_liquid_species(data: Data, filename: Path) -> dict[str, Liquid]:
+    """
+    Construct the liquids of a data1 file (see `_make_species`).
+
+    @private
+
+    @param data     The contents of the data1 file, as read by `read_data1`
+    @param filename The path to the data1 file, used in error messages
+
+    @return The liquids, keyed by name; empty if either end of the liquid
+            index range is non-positive
+
+    @throws eq36.libpyeq36.Data1Error if a name is not ASCII
+    @throws ValueError if `Liquid` rejects a species
+    """
+    return _make_species(data, data.first_liquid_index, data.last_liquid_index, Liquid, filename)
+
+
+def _make_gas_species(data: Data, filename: Path) -> dict[str, Gas]:
+    """
+    Construct the gases of a data1 file (see `_make_species`).
+
+    @private
+
+    @param data     The contents of the data1 file, as read by `read_data1`
+    @param filename The path to the data1 file, used in error messages
+
+    @return The gases, keyed by name; empty if either end of the gas
+            index range is non-positive
+
+    @throws eq36.libpyeq36.Data1Error if a name is not ASCII
+    @throws ValueError if `Gas` rejects a species
+    """
+    return _make_species(data, data.first_gas_index, data.last_gas_index, Gas, filename)
+
+
+def _make_solid_solutions(data: Data, filename: Path) -> dict[str, SolidSolution]:
+    """
+    Construct the solid solutions of a data1 file.
+
+    Each entry in the solid-solution index range is an end member, whose name
+    is the first 24 characters of the entry and whose solid solution's name is
+    the remainder.
+
+    @private
+
+    @param data     The contents of the data1 file, as read by `read_data1`
+    @param filename The path to the data1 file, used in error messages
+
+    @return The solid solutions, keyed by name; empty if either end of the
+            solid-solution index range is non-positive
+
+    @throws eq36.libpyeq36.Data1Error if a name is not ASCII
+    @throws RuntimeError if an end member occurs more than once in a solid
+            solution
+    @throws ValueError if `SolidSolution` rejects a solid solution
+    """
+    solid_solutions: dict[str, SolidSolution] = {}
+    start, stop = int(data.first_solid_solution_index), int(data.last_solid_solution_index)
+    for i in range(start - 1, stop) if start > 0 and stop > 0 else ():
+        line = data.species_names[i]
+        end_member = _ascii_decode(line[:24], filename)
+        solid_solution = _ascii_decode(line[24:], filename)
+        end_member_mass = data.species_molar_weights[i]
+        if solid_solution in solid_solutions:
+            if end_member in solid_solutions[solid_solution].end_members:
+                msg = f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times"
+                raise RuntimeError(msg)
+            solid_solutions[solid_solution].end_members[end_member] = end_member_mass
+        else:
+            solid_solutions[solid_solution] = SolidSolution(
+                name=solid_solution,
+                end_members={end_member: end_member_mass},
+            )
+    return solid_solutions
+
+
 @dataclass
 class Data1:
     """The parsed contents of a data1 file."""
@@ -407,7 +633,6 @@ class Data1:
         @throws ValueError if the constructed `tp_curve` (see
                 `eq36.curves.PiecewisePolynomial`), or any species or solid
                 solution, is invalid
-        @throws TypeError if any data read has an unexpected type
         """
         filename = Path(filename)
 
@@ -423,150 +648,16 @@ class Data1:
             ]
         )
 
-        element_names: list[str] = []
-        elements: dict[str, np.float64] = {}
-        for raw_name_obj, weight in zip(
-            cast("list[object]", list(data.element_names)),
-            data.atomic_weights,
-            strict=True,
-        ):
-            if not isinstance(raw_name_obj, bytes):
-                raise TypeError(raw_name_obj)
-            name = _ascii_decode(raw_name_obj, filename)
-            element_names.append(name)
-            elements[name] = weight
-
-        def _species_name(idx: int) -> str:
-            """
-            Get the name of a species, i.e. the first 24 characters of its entry.
-
-            @private
-
-            @param idx The 0-based index of the species
-
-            @return The species name, stripped of whitespace
-
-            @throws TypeError if the entry is not `bytes`
-            @throws eq36.libpyeq36.Data1Error if the name is not ASCII
-            """
-            raw = cast("object", data.species_names[idx])
-            if not isinstance(raw, bytes):
-                raise TypeError(raw)
-            return _ascii_decode(raw[:24], filename)
-
-        def _make_species(
-            start: np.int32,
-            stop: np.int32,
-            factory: Callable[..., SpeciesT],
-        ) -> dict[str, SpeciesT]:
-            """
-            Construct the species in a 1-based, inclusive index range.
-
-            @private
-
-            @param start   The 1-based index of the first species
-            @param stop    The 1-based index of the last species
-            @param factory The species type to construct
-
-            @return The species, keyed by name; empty if `start` or `stop` is
-                    non-positive
-
-            @throws TypeError  if a molar mass or name has an unexpected type
-            @throws ValueError if `factory` rejects a species
-            @throws eq36.libpyeq36.Data1Error if a name is not ASCII
-            """
-            result: dict[str, SpeciesT] = {}
-            if int(start) <= 0 or int(stop) <= 0:
-                return result
-            for idx in range(int(start) - 1, int(stop)):
-                weight = cast("object", data.species_molar_weights[idx])
-                if not isinstance(weight, np.float64):
-                    raise TypeError(weight)
-                name = _species_name(idx)
-                result[name] = factory(name=name, molar_mass=weight)
-            return result
-
-        aqueous_species = _make_species(data.first_aqueous_index, data.last_aqueous_index, AqueousSpecies)
-        minerals = _make_species(data.first_mineral_index, data.last_mineral_index, Mineral)
-        liquids = _make_species(data.first_liquid_index, data.last_liquid_index, Liquid)
-        gases = _make_species(data.first_gas_index, data.last_gas_index, Gas)
-
-        basis_species: dict[str, BasisSpecies] = {}
-        for i, (raw_species_name_obj, c, charge, volume) in enumerate(
-            zip(
-                cast("list[object]", list(data.species_names)),
-                data.reaction_coefficients,
-                data.charges,
-                data.volumes,
-                strict=False,
-            ),
-        ):
-            if not isinstance(raw_species_name_obj, bytes):
-                raise TypeError(raw_species_name_obj)
-
-            if c != 0:
-                break
-            name = _ascii_decode(raw_species_name_obj[0:24], filename)
-            a = int(cast("np.int32", data.composition_ranges[0, i]))
-            b = int(cast("np.int32", data.composition_ranges[1, i]))
-            indices = cast("Array1D[np.int32]", data.composition_element_indices[a - 1 : b])
-            counts = cast("list[object]", list(data.composition_counts[a - 1 : b]))
-            selected = [
-                (element_names[jdx - 1], count)
-                for idx, count in zip(indices, counts, strict=True)
-                if (jdx := int(idx)) != 0
-            ]
-
-            composition: dict[str, int] = {}
-            for element, count in selected:
-                if not isinstance(count, np.float64):
-                    raise TypeError(count)
-                composition[element] = int(count)
-            molar_mass_obj = cast("object", data.species_molar_weights[i])
-            if not isinstance(molar_mass_obj, np.float64):
-                raise TypeError(molar_mass_obj)
-            mass = molar_mass_obj
-            resolved_volume: np.float64 | None = None if volume == 0.0 else volume
-            basis_species[name] = BasisSpecies(
-                name=name,
-                molar_mass=mass,
-                composition=composition,
-                charge=int(charge),
-                volume=resolved_volume,
-            )
-
-        solid_solutions: dict[str, SolidSolution] = {}
-        start, stop = int(data.first_solid_solution_index), int(data.last_solid_solution_index)
-        for i in range(start - 1, stop) if start > 0 and stop > 0 else ():
-            line = cast("object", data.species_names[i])
-            if not isinstance(line, bytes):
-                raise TypeError(line)
-
-            end_member = _ascii_decode(line[:24], filename)
-            solid_solution = _ascii_decode(line[24:], filename)
-            end_member_mass_obj = cast("object", data.species_molar_weights[i])
-            if not isinstance(end_member_mass_obj, np.float64):
-                raise TypeError(end_member_mass_obj)
-            end_member_mass = end_member_mass_obj
-            if solid_solution in solid_solutions:
-                if end_member in solid_solutions[solid_solution].end_members:
-                    msg = f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times"
-                    raise RuntimeError(msg)
-                solid_solutions[solid_solution].end_members[end_member] = end_member_mass
-            else:
-                solid_solutions[solid_solution] = SolidSolution(
-                    name=solid_solution,
-                    end_members={end_member: end_member_mass},
-                )
+        elements, element_names = _make_elements(data, filename)
 
         return cls(
-            filename,
-            elements,
-            basis_species,
-            aqueous_species,
-            minerals,
-            liquids,
-            gases,
-            solid_solutions,
-            tp_curve,
+            filename=filename,
+            elements=elements,
+            basis_species=_make_basis_species(data, element_names, filename),
+            aqueous_species=_make_aqueous_species(data, filename),
+            minerals=_make_mineral_species(data, filename),
+            liquids=_make_liquid_species(data, filename),
+            gases=_make_gas_species(data, filename),
+            solid_solutions=_make_solid_solutions(data, filename),
+            tp_curve=tp_curve,
         )

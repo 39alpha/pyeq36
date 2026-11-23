@@ -358,45 +358,6 @@ def disable_species_ranges(payload: Data) -> None:
 
 
 @pytest.mark.parametrize(
-    ("field", "value", "basis_only"),
-    [
-        ("element_names", ["H", b"O"], False),
-        ("species_names", [123, *OTHER_NAMES], False),
-        ("species_names", [456, *OTHER_NAMES], True),
-        ("species_names", [b"H+                      ", *OTHER_NAMES[:-1], 456], False),
-        ("species_molar_weights", [42, *OTHER_WEIGHTS], False),
-        ("species_molar_weights", [42, *OTHER_WEIGHTS], True),
-        ("species_molar_weights", [np.float64(1.0), *OTHER_WEIGHTS[:-2], 42, OTHER_WEIGHTS[-1]], False),
-    ],
-    ids=[
-        "element-name",
-        "species-name",
-        "basis-species-name",
-        "solid-solution-name",
-        "species-weight",
-        "basis-species-weight",
-        "solid-solution-weight",
-    ],
-)
-def test_from_file_rejects_unexpected_types(
-    payload: Data, field: str, value: list[object], *, basis_only: bool
-) -> None:
-    """
-    Ensure that `from_file` raises a `TypeError` if a name is not `bytes` or a molar weight is not an `np.float64`.
-
-    @param payload    The payload returned by the mocked `read_data1`
-    @param field      The name of the payload field to replace
-    @param value      The (object array) replacement, containing one value of an unexpected type
-    @param basis_only Whether to disable all but the basis species, so that the basis-species loop reads the value
-    """
-    setattr(payload, field, np.array(value, dtype=object))
-    if basis_only:
-        disable_species_ranges(payload)
-    with pytest.raises(TypeError):
-        _ = Data1.from_file("fake.d1")
-
-
-@pytest.mark.parametrize(
     ("field", "index", "value", "basis_only"),
     [
         ("element_names", 1, b"O\xe9", False),
@@ -423,17 +384,6 @@ def test_from_file_rejects_non_ascii_names(
     if basis_only:
         disable_species_ranges(payload)
     with pytest.raises(Data1Error, match=r"fake\.d1"):
-        _ = Data1.from_file("fake.d1")
-
-
-def test_from_file_rejects_non_float64_composition_counts(payload: Data) -> None:
-    """
-    Ensure that `from_file` raises a `TypeError` if a composition count is not an `np.float64`.
-
-    @param payload The payload returned by the mocked `read_data1`
-    """
-    payload.composition_counts = np.array([2, 1])
-    with pytest.raises(TypeError):
         _ = Data1.from_file("fake.d1")
 
 
