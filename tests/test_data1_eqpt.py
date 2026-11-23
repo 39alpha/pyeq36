@@ -8,6 +8,7 @@ with the grid in the `.d0` file from which `eqpt` fit it.
 
 from __future__ import annotations
 
+from itertools import pairwise
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -169,32 +170,9 @@ def molar_masses_of(end_members: dict[str, np.float64]) -> dict[str, float]:
     return {name: float(mass) for name, mass in end_members.items()}
 
 
-## The number of temperature ranges supported by `TPCurve`
-TPCURVE_RANGES = 2
-
-
-@pytest.fixture
-def xfail_multi_range(request: pytest.FixtureRequest, d1f: D1F) -> None:
-    """
-    Mark a test as an expected failure for databases with more than two temperature ranges.
-
-    `Data1.from_file` constructs `tp_curve` from only the first two ranges, and
-    `TPCurve` supports exactly two polynomials. The failure is strict, so the
-    mark must be removed once more ranges are supported.
-
-    @param request The pytest fixture request, used to apply the mark
-    @param d1f     The reference values
-    """
-    if len(d1f.range_maxima) > TPCURVE_RANGES:
-        request.applymarker(
-            pytest.mark.xfail(reason="tp_curve supports only two temperature ranges", strict=True),
-        )
-
-
-@pytest.mark.usefixtures("xfail_multi_range")
 def test_tp_curve_spans_temperature_ranges(parsed: Data1, d1f: D1F) -> None:
     """
-    Ensure that the curve starts at the nominal minimum temperature and is split at, and ends at, the range maxima.
+    Ensure that the curve has one piece per temperature range, starting at the nominal minimum temperature.
 
     @param parsed The parsed data
     @param d1f    The reference values
@@ -206,26 +184,24 @@ def test_tp_curve_spans_temperature_ranges(parsed: Data1, d1f: D1F) -> None:
           whose grid spans 0-300 C.
     """
     assert parsed.tp_curve is not None
-    temperature = {key: float(value) for key, value in parsed.tp_curve.temperature.items()}
-    expected = {"min": d1f.temperature_limits[0], "mid": d1f.range_maxima[0], "max": d1f.range_maxima[-1]}
-    assert temperature == pytest.approx(expected, abs=TOL_3DP)
+    actual = [(float(lower), float(upper)) for lower, upper in (piece.domain for piece in parsed.tp_curve.pieces)]
+    bounds = [d1f.temperature_limits[0], *d1f.range_maxima]
+    assert actual == [pytest.approx(b, abs=TOL_3DP) for b in pairwise(bounds)]
 
 
-@pytest.mark.usefixtures("xfail_multi_range")
 def test_tp_curve_has_pressure_polynomial_per_range(parsed: Data1, d1f: D1F) -> None:
     """
-    Ensure that the curve has the pressure polynomial of each temperature range, padded with zeros.
+    Ensure that each piece of the curve has the pressure polynomial of its temperature range, padded with zeros.
 
     @param parsed The parsed data
     @param d1f    The reference values
     """
     assert parsed.tp_curve is not None
-    actual = [coefficients.tolist() for coefficients in parsed.tp_curve.pressure]
+    actual = [piece.coeffs.tolist() for piece in parsed.tp_curve.pieces]
     expected = [c + [0.0] * (len(actual[0]) - len(c)) for c in d1f.pressure_coefficients]
     assert actual == [pytest.approx(c, rel=REL_10SF) for c in expected]
 
 
-@pytest.mark.usefixtures("xfail_multi_range")
 def test_tp_curve_reproduces_d0_grid(parsed: Data1, d1f: D1F, d0_grid: list[tuple[float, float]]) -> None:
     """
     Ensure that the curve reproduces the `.d0` grid pressures within the nominal temperature limits.

@@ -172,6 +172,8 @@ def test_from_file_reads_metadata(parsed: Data1) -> None:
     assert parsed.filename == Path("fake.d1")
     assert parsed.elements == {"H": np.float64(1.0), "O": np.float64(16.0)}
     assert parsed.tp_curve is not None
+    assert [piece.domain for piece in parsed.tp_curve.pieces] == [(0.0, 5.0), (5.0, 10.0)]
+    assert [piece.coeffs.tolist() for piece in parsed.tp_curve.pieces] == [[1.0], [1.0]]
 
 
 def test_from_file_reads_basis_species(parsed: Data1) -> None:

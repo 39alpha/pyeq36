@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, TypeVar, cast
 import numpy as np
 from typing_extensions import Self
 
-from eq36.curves import TPCurve
+from eq36.curves import PiecewisePolynomial, Polynomial
 from eq36.libpyeq36 import read_data1
 
 if TYPE_CHECKING:
@@ -254,7 +254,7 @@ class Data1:
     ## The solid solutions, keyed by name
     solid_solutions: dict[str, SolidSolution]
     ## The standard grid pressure as a function of temperature
-    tp_curve: TPCurve | None
+    tp_curve: PiecewisePolynomial | None
 
     def get_basis_species(self, element: str) -> BasisSpecies | None:
         """
@@ -365,25 +365,10 @@ class Data1:
         """
         Read and parse a data1 file.
 
-        The file is read with `eq36.libpyeq36.read_data1`, after which:
-        - `tp_curve` is constructed from the minimum temperature, the maxima of
-          the first two temperature ranges, and the first two columns of the
-          pressure coefficients;
-        - the aqueous species, minerals, liquids and gases are taken from the
-          corresponding index ranges of the species arrays (an empty
-          dictionary if either index is non-positive), keeping the first 24
-          characters of each name;
-        - the basis species are the leading species whose corresponding entry
-          of `reaction_coefficients` is zero, with their compositions taken
-          from `composition_ranges`, `composition_element_indices` and
-          `composition_counts`, and a zero volume treated as unknown; entries
-          for the null element (index 0), which EQ3/6 assigns to species
-          composed of no elements (e.g. `e-`), are skipped, leaving such a
-          species with an empty composition;
-        - the solid solutions are assembled from the end-member index range (an
-          empty dictionary if either index is non-positive), with the
-          end-member name in the first 24 characters of the species name and
-          the solid-solution name in the remainder.
+        The file's temperature-pressure curve, `tp_curve`, has one polynomial
+        piece per temperature range: the first spans the minimum temperature
+        to the first range's maximum, and each subsequent piece spans
+        consecutive range maxima.
 
         @param filename The path to the data1 file
 
@@ -391,27 +376,30 @@ class Data1:
 
         @throws UnicodeEncodeError if the filename cannot be encoded (see
                 `read_data1`)
-        @throws OSError      if `read_data1` cannot open the file (see
-                `read_data1` for the specific types)
+        @throws OSError if `read_data1` cannot open the file (see `read_data1`
+                for the specific types)
         @throws eq36.libpyeq36.Data1Error if `read_data1` finds that the file
                 is not a valid data1 file
         @throws RuntimeError if a solid-solution end member occurs more than
                 once
-        @throws ValueError   if any constructed `TPCurve`, species or solid
-                solution is invalid
-        @throws TypeError    if any data read has an unexpected type
+        @throws ValueError if the constructed `tp_curve` (see
+                `eq36.curves.PiecewisePolynomial`), or any species or solid
+                solution, is invalid
+        @throws TypeError if any data read has an unexpected type
         """
         filename = Path(filename)
 
         data = read_data1(filename)
 
-        temp: dict[str, np.float64] = {
-            "min": data.min_temperature,
-            "mid": data.max_temperature_range[0],
-            "max": data.max_temperature_range[1],
-        }
-        press = (data.pressure_coefficients[:, 0], data.pressure_coefficients[:, 1])
-        tp_curve = TPCurve(temp, press)
+        tp_curve = PiecewisePolynomial(
+            [
+                Polynomial((data.min_temperature, data.max_temperature_range[0]), data.pressure_coefficients[:, 0]),
+                *(
+                    Polynomial(tuple(data.max_temperature_range[i - 1 : i + 1]), data.pressure_coefficients[:, i])
+                    for i in range(1, len(data.max_temperature_range))
+                ),
+            ]
+        )
 
         element_names: list[str] = []
         elements: dict[str, np.float64] = {}
