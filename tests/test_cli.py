@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from subprocess import PIPE, Popen
 from typing import TYPE_CHECKING
 
 import pytest
 
 from eq36 import cli
 from eq36.paths import get_execpath
+
+from .runs import NON_ASCII_STEMS, RUNS, Run, copy_inputs
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -217,3 +220,27 @@ def test_shim_exits_if_executable_is_the_shim(
     assert excinfo.value.code.startswith("eqpt: ")
     assert "points to a shim script" in excinfo.value.code
     assert execv_args == []
+
+
+@pytest.mark.parametrize("stem", NON_ASCII_STEMS)
+@pytest.mark.parametrize("run", RUNS, ids=lambda run: run.executable)
+def test_shim_runs_files_with_non_ascii_names(tmp_path: Path, run: Run, stem: str) -> None:
+    """
+    Ensure that the shims pass non-ASCII filenames on to the executables, which read and write those files.
+
+    The test data files are copied into a temporary directory, all named
+    `stem`, and the shim is called in a Python subprocess run in that
+    directory, so that only the subprocess is replaced by the executable.
+
+    @param tmp_path A temporary directory in which to run the shim
+    @param run      The shim to call, its inputs and the extensions of the files that its executable writes
+    @param stem     The non-ASCII stem of the filenames
+    """
+    args = copy_inputs(run.inputs, stem, tmp_path)
+    script = f"from eq36 import cli; cli.{run.executable}()"
+
+    with Popen([sys.executable, "-c", script, *args], stdout=PIPE, stderr=PIPE, cwd=tmp_path) as process:
+        stdout, stderr = process.communicate(timeout=30)
+
+    for extension in run.extensions:
+        assert (tmp_path / f"{stem}{extension}").is_file(), (stdout, stderr)

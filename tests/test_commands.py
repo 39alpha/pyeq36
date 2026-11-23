@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
 import eq36
 from eq36 import Eq3Error, Eq6Error, Eq36Error, EqptError, eq3nr, eq6, eqpt
 from eq36.paths import get_execpath
+
+from .runs import NON_ASCII_STEMS, RUNS, Run, copy_inputs
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -194,3 +196,32 @@ def test_commands_raise_if_executable_is_missing(
     monkeypatch.setenv("EQ36_BIN", str(tmp_path))
     with pytest.raises(FileNotFoundError, match="command not found"):
         _ = command(*args)
+
+
+@pytest.mark.parametrize("stem", NON_ASCII_STEMS)
+@pytest.mark.parametrize("run", RUNS, ids=lambda run: run.executable)
+def test_commands_run_files_with_non_ascii_names(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    run: Run,
+    stem: str,
+) -> None:
+    """
+    Ensure that `eqpt`, `eq3nr` and `eq6` read and write files with non-ASCII names.
+
+    The test data files are copied into a temporary directory, all named
+    `stem`, and the command is run in that directory.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory in which to run the command
+    @param run         The command to run, its inputs and the extensions of the files it writes
+    @param stem        The non-ASCII stem of the filenames
+    """
+    command = cast("Callable[..., tuple[bytes, bytes]]", getattr(eq36, run.executable))
+    monkeypatch.chdir(tmp_path)
+    args = copy_inputs(run.inputs, stem, tmp_path)
+
+    _ = command(*args, timeout=30)
+
+    for extension in run.extensions:
+        assert (tmp_path / f"{stem}{extension}").is_file()
