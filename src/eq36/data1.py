@@ -455,8 +455,6 @@ def _make_solid_solutions(data: Data, filename: Path) -> dict[str, SolidSolution
             solid-solution index range is non-positive
 
     @throws eq36.libpyeq36.Data1Error if a name is not ASCII
-    @throws RuntimeError if an end member occurs more than once in a solid
-            solution
     @throws ValueError if `SolidSolution` rejects a solid solution
     """
     solid_solutions: dict[str, SolidSolution] = {}
@@ -467,9 +465,6 @@ def _make_solid_solutions(data: Data, filename: Path) -> dict[str, SolidSolution
         solid_solution = _ascii_decode(line[24:], filename)
         end_member_mass = data.species_molar_weights[i]
         if solid_solution in solid_solutions:
-            if end_member in solid_solutions[solid_solution].end_members:
-                msg = f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times"
-                raise RuntimeError(msg)
             solid_solutions[solid_solution].end_members[end_member] = end_member_mass
         else:
             solid_solutions[solid_solution] = SolidSolution(
@@ -628,8 +623,6 @@ class Data1:
                 is not a valid data1 file
         @throws eq36.libpyeq36.Data1Error if any element, species or
                 solid-solution name is not ASCII
-        @throws RuntimeError if a solid-solution end member occurs more than
-                once
         @throws ValueError if the constructed `tp_curve` (see
                 `eq36.curves.PiecewisePolynomial`), or any species or solid
                 solution, is invalid

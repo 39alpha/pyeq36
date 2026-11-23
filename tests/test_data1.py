@@ -334,17 +334,6 @@ def test_from_file_skips_null_element(
     assert Data1.from_file("fake.d1").basis_species["H+"].composition == expected
 
 
-def test_from_file_rejects_duplicate_end_members(payload: Data) -> None:
-    """
-    Ensure that `from_file` raises a `RuntimeError` if a solid-solution end member occurs more than once.
-
-    @param payload The payload returned by the mocked `read_data1`
-    """
-    payload.species_names[7] = b"EM1                     SOLID1"
-    with pytest.raises(RuntimeError, match="occurs multiple times"):
-        _ = Data1.from_file("fake.d1")
-
-
 def disable_species_ranges(payload: Data) -> None:
     """
     Set the start of the aqueous, mineral, liquid and gas ranges to zero so that only basis species are parsed.
