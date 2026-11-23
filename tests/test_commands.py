@@ -145,6 +145,39 @@ def test_commands_raise_on_missing_file(
     assert str(excinfo.value).endswith(f" in file {args[-1]!r}")
 
 
+@pytest.mark.parametrize("stem", NON_ASCII_STEMS)
+@pytest.mark.parametrize(
+    ("command", "extensions"),
+    [(eqpt, (".d0",)), (eq3nr, (".d1", ".3i")), (eq6, (".d1", ".6i"))],
+    ids=["eqpt", "eq3nr", "eq6"],
+)
+def test_commands_report_missing_non_ascii_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    command: Callable[..., tuple[bytes, bytes]],
+    extensions: tuple[str, ...],
+    stem: str,
+) -> None:
+    """
+    Ensure that a missing file with a non-ASCII name is named correctly in the raised error.
+
+    The binaries are run in a temporary directory on files that do not exist,
+    and the first file is reported as missing.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param tmp_path    A temporary directory in which to run the command
+    @param command     The function under test
+    @param extensions  The extensions of the (missing) files to pass to `command`
+    @param stem        The non-ASCII stem of the filenames
+    """
+    args = [f"{stem}{extension}" for extension in extensions]
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(Eq36Error) as excinfo:
+        _ = command(*args, timeout=30)
+
+    assert f'The file "{args[0]}" does not exist' in str(excinfo.value)
+
+
 @pytest.mark.parametrize(
     ("command", "args"),
     [(eqpt, ("nope.d0",)), (eq3nr, ("nope.d1", "nope.3i")), (eq6, ("nope.d1", "nope.6i"))],

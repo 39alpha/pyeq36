@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from enum import IntEnum
 from functools import partial
 from subprocess import PIPE, Popen, TimeoutExpired
@@ -200,8 +201,8 @@ def _error_guard(output: bytes | str, cmd: str, error_type: type[Eq36Error], fna
     Raise an informative error if one is found in the output of a command.
 
     The output is searched for EQ3/6 error messages, i.e. those beginning with
-    `"Error - "`. An error of type `error_type` is raised for the first non-empty
-    message, with the `"Error"` prefix replaced by `cmd`.
+    `"Error - "`. An error of type `error_type` is raised for the first
+    non-empty message, with the `"Error"` prefix replaced by `cmd`.
 
     @private
 
@@ -214,7 +215,8 @@ def _error_guard(output: bytes | str, cmd: str, error_type: type[Eq36Error], fna
             message is found in the command output
     """
     if isinstance(output, bytes):
-        output = output.decode("utf-8", errors="replace")
+        encoding = "mbcs" if sys.platform.startswith("win") else sys.getfilesystemencoding()
+        output = output.decode(encoding, errors="replace")
 
     matches = re.finditer(r"Error - (.*?)(?:\n\s*\n|\Z)", output, flags=re.DOTALL)
     for match in matches:

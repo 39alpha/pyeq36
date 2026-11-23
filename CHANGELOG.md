@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ANSI code page cannot represent, rather than letting Windows silently
   substitute a different filename.
 
+### Fixed
+
+- **Non-ASCII filenames in `Eq36Error` messages** are decoded correctly on
+  Windows, rather than shown as `�`.
+
 ## [v0.2.0]
 
 ### Added

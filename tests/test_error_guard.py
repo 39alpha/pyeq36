@@ -1,10 +1,14 @@
 """Test the detection of errors in the output of EQ3/6 commands."""
 
+import os
+import sys
 from pathlib import Path
 
 import pytest
 
 from eq36.commands import Eq3Error, Eq6Error, Eq36Error, EqptError, RunCode, _error_guard
+
+from .runs import NON_ASCII_STEMS
 
 ## The `stdout` of `eqpt` when run on a data0 file that does not exist
 MISSING_FILE_OUTPUT = b'\n * Error - (EQLIBU/openin) The file "nope.d0"\n       does not exist.\n'
@@ -95,3 +99,23 @@ def test_error_guard_ignores_only_empty_errors(output: bytes) -> None:
     @param output Command output containing only empty error messages
     """
     _error_guard(output, "eqpt", error_type=EqptError)
+
+
+@pytest.mark.parametrize("stem", NON_ASCII_STEMS)
+def test_error_guard_decodes_filenames(stem: str) -> None:
+    """
+    Ensure that a non-ASCII filename in the output is decoded as the binaries received it.
+
+    The binaries echo the bytes of their arguments, which are encoded with the
+    ANSI code page (`mbcs`) on Windows and with `os.fsencode` elsewhere.
+
+    @param stem The non-ASCII stem of the filename
+    """
+    fname = f"{stem}.d0"
+    encoded = fname.encode("mbcs") if sys.platform.startswith("win") else os.fsencode(fname)
+    output = b'\n * Error - (EQLIBU/openin) The file "' + encoded + b'"\n       does not exist.\n'
+
+    with pytest.raises(Eq36Error) as excinfo:
+        _error_guard(output, "eqpt", error_type=EqptError)
+
+    assert str(excinfo.value) == f'eqpt - (EQLIBU/openin) The file "{fname}" does not exist.'
