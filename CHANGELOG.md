@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`check_filepath_compatibility` and `MAX_FILEPATH_BYTES`** in `eq36.paths`,
   to check that a file path can be passed to the EQ3/6 binaries.
+- **`Polynomial` and `PiecewisePolynomial`** in `eq36.curves`: a polynomial on a
+  domain, and a continuous piecewise polynomial built from them.
 
 ### Changed
 
@@ -19,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   substitute a different filename.
 - **`eqpt`, `eq3nr`, `eq6` and their shims** reject file paths longer than
   `MAX_FILEPATH_BYTES` bytes, which the binaries would silently truncate.
+- **`Data1.tp_curve`** is a `PiecewisePolynomial` with one piece per temperature
+  range, rather than a `TPCurve` built from the first two ranges.
+
+### Removed
+
+- **`TPCurve`**, replaced by `PiecewisePolynomial`, along with its domain
+  restriction and sampling.
+- **`CartesianCoord`** type alias from `eq36.typing`.
 
 ### Fixed
 
@@ -31,13 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`eqpt`, `eq3nr` and `eq6`** functions to run the binaries from Python,
   returning their `stdout` and `stderr`.
-- **`Eq36Error`** exception, raised when a binary reports an error, exits with
-  a non-zero code or times out.
+- **`Eq36Error`** exception, raised when a binary reports an error, exits with a
+  non-zero code or times out.
 - **`RunCode`** enum of the error codes carried by `Eq36Error`.
 - **`EQ36_BIN`** environment variable to use EQ3/6 binaries installed outside of
   the package.
-- **`eq36.data1`** module with the `Data1` class, a structured representation
-  of a data1 file, and its species and solid solution types.
+- **`eq36.data1`** module with the `Data1` class, a structured representation of
+  a data1 file, and its species and solid solution types.
 - **`eq36.libpyeq36`** module, a thin `ctypes` wrapper around the new
   `libpyeq36` Fortran library, which reads data1 files.
 - **`eq36.curves`** module with the `TPCurve` class, a pressure-temperature
@@ -60,8 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`eq36.paths`** functions raise `RuntimeError` rather than `Exception`.
 - **`get_execpath`** checks for the `.exe` extension case-insensitively.
-- **Wheels** are tagged `py3-none-<platform>`, so one wheel per platform
-  serves every Python version.
+- **Wheels** are tagged `py3-none-<platform>`, so one wheel per platform serves
+  every Python version.
 - **CI** runs tests on feature branches; releases are tested, installed and
   wheel-tested before deploying. Actions are pinned to commit hashes.
 - **`just check`** also runs the spellcheck and reports coverage.
