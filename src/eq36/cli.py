@@ -19,7 +19,7 @@ import os
 import sys
 from pathlib import Path
 
-from eq36.paths import check_encodable, get_execpath, remove_exe
+from eq36.paths import check_filepath_compatibility, get_execpath, remove_exe
 
 
 def _run(cmd: str) -> None:
@@ -55,8 +55,8 @@ def _run(cmd: str) -> None:
             )
             sys.exit(f"{cmd}: {msg}")
 
-        os.execv(target, [sys.argv[0], *(check_encodable(arg) for arg in sys.argv[1:])])
-    except (OSError, RuntimeError, UnicodeEncodeError) as err:
+        os.execv(target, [sys.argv[0], *(check_filepath_compatibility(arg) for arg in sys.argv[1:])])
+    except (OSError, RuntimeError, ValueError) as err:
         sys.exit(f"{cmd}: {err}")
 
 

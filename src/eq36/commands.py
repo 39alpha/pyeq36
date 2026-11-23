@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import assert_never, override
 
-from eq36.paths import check_encodable, get_execpath
+from eq36.paths import check_filepath_compatibility, get_execpath
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -317,12 +317,14 @@ def eqpt(data0: str | Path, timeout: float | None = None, error_check: bool = Tr
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if the `eqpt` executable is not found
-    @throws UnicodeEncodeError on Windows, if a filepath cannot be represented in the ANSI code page
+    @throws UnicodeEncodeError if a filepath cannot be encoded, e.g. on Windows if the ANSI code page cannot
+            represent it
+    @throws ValueError if a filepath is longer than `MAX_FILEPATH_BYTES` bytes once encoded
     @throws OSError if the executable cannot be executed
     """
     return _run(
         get_execpath("eqpt"),
-        check_encodable(data0),
+        check_filepath_compatibility(data0),
         timeout=timeout,
         fname=data0,
         error_type=EqptError,
@@ -355,13 +357,15 @@ def eq3nr(
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if the `eq3nr` executable is not found
-    @throws UnicodeEncodeError on Windows, if a filepath cannot be represented in the ANSI code page
+    @throws UnicodeEncodeError if a filepath cannot be encoded, e.g. on Windows if the ANSI code page cannot
+            represent it
+    @throws ValueError if a filepath is longer than `MAX_FILEPATH_BYTES` bytes once encoded
     @throws OSError if the executable cannot be executed
     """
     return _run(
         get_execpath("eq3nr"),
-        check_encodable(data1),
-        check_encodable(threei),
+        check_filepath_compatibility(data1),
+        check_filepath_compatibility(threei),
         timeout=timeout,
         fname=threei,
         error_type=Eq3Error,
@@ -394,13 +398,15 @@ def eq6(
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if the `eq6` executable is not found
-    @throws UnicodeEncodeError on Windows, if a filepath cannot be represented in the ANSI code page
+    @throws UnicodeEncodeError if a filepath cannot be encoded, e.g. on Windows if the ANSI code page cannot
+            represent it
+    @throws ValueError if a filepath is longer than `MAX_FILEPATH_BYTES` bytes once encoded
     @throws OSError if the executable cannot be executed
     """
     return _run(
         get_execpath("eq6"),
-        check_encodable(data1),
-        check_encodable(sixi),
+        check_filepath_compatibility(data1),
+        check_filepath_compatibility(sixi),
         timeout=timeout,
         fname=sixi,
         error_type=Eq6Error,

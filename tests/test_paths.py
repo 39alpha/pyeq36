@@ -1,15 +1,25 @@
 """Test the path resolution utilities in `eq36.paths`."""
 
 import errno
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
 from eq36 import paths
-from eq36.paths import check_encodable, get_bin, get_execpath, get_lib, get_libpath, remove_exe
+from eq36.paths import (
+    MAX_FILEPATH_BYTES,
+    check_filepath_compatibility,
+    get_bin,
+    get_execpath,
+    get_lib,
+    get_libpath,
+    remove_exe,
+)
 
 from .ansi import ANSI_UNENCODABLE, NON_ASCII, ansi_encodable, requires_non_ascii
+from .runs import TOO_LONG
 
 
 def test_get_bin() -> None:
@@ -431,41 +441,90 @@ def test_get_libpath_raises_if_lib_is_missing(monkeypatch: pytest.MonkeyPatch, t
         pytest.param(Path(NON_ASCII, f"{NON_ASCII}.d1"), marks=requires_non_ascii),
     ],
 )
-def test_check_encodable_returns_string(filepath: str | Path) -> None:
+def test_check_filepath_compatibility_returns_string(filepath: str | Path) -> None:
     """
-    Ensure that `check_encodable` returns an encodable filepath as a string.
+    Ensure that `check_filepath_compatibility` returns an encodable filepath as a string.
 
     The non-ASCII filepaths are skipped if the ANSI code page cannot represent them.
 
     @param filepath The filepath to check
     """
-    assert check_encodable(filepath) == str(filepath)
+    assert check_filepath_compatibility(filepath) == str(filepath)
 
 
 @pytest.mark.parametrize("filepath", [f"{ANSI_UNENCODABLE}.d1", Path(ANSI_UNENCODABLE, "ok.d1")])
-def test_check_encodable_does_not_check_other_platforms(monkeypatch: pytest.MonkeyPatch, filepath: str | Path) -> None:
+def test_check_filepath_compatibility_ignores_ansi_code_page_on_other_platforms(
+    monkeypatch: pytest.MonkeyPatch, filepath: str | Path
+) -> None:
     """
-    Ensure that `check_encodable` returns a filepath unchecked on platforms other than Windows.
+    Ensure that `check_filepath_compatibility` does not use the ANSI code page on platforms other than Windows.
 
     @param monkeypatch The pytest monkeypatch fixture
     @param filepath    A filepath which no ANSI code page other than UTF-8 can represent
     """
     monkeypatch.setattr(sys, "platform", "linux")
-    assert check_encodable(filepath) == str(filepath)
+    assert check_filepath_compatibility(filepath) == str(filepath)
 
 
 @pytest.mark.skipif(not sys.platform.startswith("win"), reason="the ANSI code page is only used on Windows")
 @pytest.mark.skipif(ansi_encodable(ANSI_UNENCODABLE), reason="the ANSI code page is UTF-8")
 @pytest.mark.parametrize("filepath", [f"{ANSI_UNENCODABLE}.d1", Path(ANSI_UNENCODABLE, "ok.d1")])
-def test_check_encodable_raises_on_windows(filepath: str | Path) -> None:
+def test_check_filepath_compatibility_raises_on_windows(filepath: str | Path) -> None:
     """
-    Ensure that `check_encodable` raises a `UnicodeEncodeError`, naming the filepath, if it is unencodable on Windows.
+    Ensure that `check_filepath_compatibility` raises `UnicodeEncodeError`, naming the filepath, on Windows.
 
     @param filepath A filepath which no ANSI code page other than UTF-8 can represent
     """
     with pytest.raises(UnicodeEncodeError) as excinfo:
-        _ = check_encodable(filepath)
+        _ = check_filepath_compatibility(filepath)
 
     assert repr(str(filepath)) in str(excinfo.value)
     assert excinfo.value.object == str(filepath)
     assert isinstance(excinfo.value.__cause__, UnicodeEncodeError)
+
+
+@pytest.mark.parametrize(
+    "filepath", ["a" * (MAX_FILEPATH_BYTES - 3) + ".d1", Path("a" * (MAX_FILEPATH_BYTES - 6), "ok.d1")]
+)
+def test_check_filepath_compatibility_accepts_maximum_length(filepath: str | Path) -> None:
+    """
+    Ensure that `check_filepath_compatibility` accepts a filepath of exactly `MAX_FILEPATH_BYTES` bytes.
+
+    @param filepath An ASCII filepath of `MAX_FILEPATH_BYTES` bytes
+    """
+    assert len(str(filepath)) == MAX_FILEPATH_BYTES
+    assert check_filepath_compatibility(filepath) == str(filepath)
+
+
+@pytest.mark.parametrize("filepath", [TOO_LONG, Path("a" * (MAX_FILEPATH_BYTES - 5), "ok.d1")])
+def test_check_filepath_compatibility_rejects_long_filepaths(filepath: str | Path) -> None:
+    """
+    Ensure that `check_filepath_compatibility` raises `ValueError` for a filepath over `MAX_FILEPATH_BYTES` bytes.
+
+    The binaries would otherwise silently truncate it.
+
+    @param filepath An ASCII filepath of `MAX_FILEPATH_BYTES + 1` bytes
+    """
+    assert len(str(filepath)) == MAX_FILEPATH_BYTES + 1
+    with pytest.raises(ValueError, match=str(MAX_FILEPATH_BYTES)):
+        _ = check_filepath_compatibility(filepath)
+
+
+@requires_non_ascii
+def test_check_filepath_compatibility_counts_encoded_bytes() -> None:
+    """
+    Ensure that `check_filepath_compatibility` limits the length of the encoded filepath, not the number of characters.
+
+    The filepath has fewer than `MAX_FILEPATH_BYTES` characters. It is encoded as
+    the binaries receive it, with the ANSI code page (`mbcs`) on Windows and
+    `os.fsencode` elsewhere, which may take more than one byte per character,
+    e.g. two for `NON_ASCII` in UTF-8.
+    """
+    filepath = NON_ASCII * (MAX_FILEPATH_BYTES // 2 + 1)
+    encoded = filepath.encode("mbcs") if sys.platform.startswith("win") else os.fsencode(filepath)
+
+    if len(encoded) > MAX_FILEPATH_BYTES:
+        with pytest.raises(ValueError, match=str(MAX_FILEPATH_BYTES)):
+            _ = check_filepath_compatibility(filepath)
+    else:
+        assert check_filepath_compatibility(filepath) == filepath

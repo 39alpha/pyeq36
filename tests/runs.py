@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from eq36.paths import MAX_FILEPATH_BYTES
+
 from .ansi import NON_ASCII, ansi_encodable
 from .eqpt_reference import DATA_DIR
 
@@ -25,6 +27,9 @@ if TYPE_CHECKING:
 
 ## The directory containing the EQ3/6 test data
 EQ36_DATA_DIR = DATA_DIR.parent
+
+## An ASCII filename one byte longer than `MAX_FILEPATH_BYTES`
+TOO_LONG = "a" * (MAX_FILEPATH_BYTES - 2) + ".d1"
 
 ## Stems of the non-ASCII filenames, one that the Windows-1252 code page can represent and one that it cannot.
 NON_ASCII_STEMS = [

@@ -9,10 +9,10 @@ import pytest
 
 import eq36
 from eq36 import Eq3Error, Eq6Error, Eq36Error, EqptError, eq3nr, eq6, eqpt
-from eq36.paths import get_execpath
+from eq36.paths import MAX_FILEPATH_BYTES, get_execpath
 
 from .ansi import ANSI_UNENCODABLE, ansi_encodable
-from .runs import NON_ASCII_STEMS, RUNS, Run, copy_inputs
+from .runs import NON_ASCII_STEMS, RUNS, TOO_LONG, Run, copy_inputs
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -326,3 +326,33 @@ def test_commands_reject_names_the_ansi_code_page_cannot_represent(
             _ = command(*args)
 
         assert popen_args == []
+
+
+@pytest.mark.parametrize(
+    ("command", "args"),
+    [
+        pytest.param(eqpt, (TOO_LONG,), id="eqpt"),
+        pytest.param(eq3nr, (TOO_LONG, "input.3i"), id="eq3nr-data1"),
+        pytest.param(eq3nr, ("data1.d1", TOO_LONG), id="eq3nr-input"),
+        pytest.param(eq6, (TOO_LONG, "input.6i"), id="eq6-data1"),
+        pytest.param(eq6, ("data1.d1", TOO_LONG), id="eq6-input"),
+    ],
+)
+def test_commands_reject_long_names(
+    popen_args: list[list[object]],
+    command: Callable[..., tuple[bytes, bytes]],
+    args: tuple[str, ...],
+) -> None:
+    """
+    Ensure that `eqpt`, `eq3nr` and `eq6` raise a `ValueError`, before starting a process, for overlong names.
+
+    The binaries would otherwise silently truncate them.
+
+    @param popen_args The recorded command lines of calls to `Popen`
+    @param command    The function under test
+    @param args       The files to pass to `command`, one of which is too long
+    """
+    with pytest.raises(ValueError, match=str(MAX_FILEPATH_BYTES)):
+        _ = command(*args)
+
+    assert popen_args == []

@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING
 import pytest
 
 from eq36 import cli
-from eq36.paths import get_execpath
+from eq36.paths import MAX_FILEPATH_BYTES, get_execpath
 
 from .ansi import ANSI_UNENCODABLE, ansi_encodable
-from .runs import NON_ASCII_STEMS, RUNS, Run, copy_inputs
+from .runs import NON_ASCII_STEMS, RUNS, TOO_LONG, Run, copy_inputs
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -291,3 +291,34 @@ def test_shim_rejects_names_the_ansi_code_page_cannot_represent(
         assert isinstance(excinfo.value.code, str)
         assert excinfo.value.code.startswith(f"{executable}: ")
         assert execv_args == []
+
+
+@pytest.mark.parametrize("args", [[TOO_LONG, "input"], ["data1", TOO_LONG]], ids=["first", "second"])
+@pytest.mark.parametrize(("shim", "executable"), [(cli.eqpt, "eqpt"), (cli.eq3nr, "eq3nr"), (cli.eq6, "eq6")])
+def test_shim_rejects_long_names(
+    monkeypatch: pytest.MonkeyPatch,
+    execv_args: list[tuple[Path, list[str]]],
+    shim: Callable[[], None],
+    executable: str,
+    args: list[str],
+) -> None:
+    """
+    Ensure that each shim exits with a message, and the process is not replaced, if an argument is too long.
+
+    The executables would otherwise silently truncate it.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param execv_args  The recorded arguments of calls to `os.execv`
+    @param shim        The shim under test
+    @param executable  The name of the executable that `shim` should run
+    @param args        The arguments following the program name, one of which is too long
+    """
+    monkeypatch.setattr(sys, "argv", [executable, *args])
+
+    with pytest.raises(SystemExit) as excinfo:
+        shim()
+
+    assert isinstance(excinfo.value.code, str)
+    assert excinfo.value.code.startswith(f"{executable}: ")
+    assert str(MAX_FILEPATH_BYTES) in excinfo.value.code
+    assert execv_args == []

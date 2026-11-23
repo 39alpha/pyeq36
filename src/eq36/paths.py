@@ -161,35 +161,43 @@ def get_libpath(lib: str | Path) -> Path:
     return libpath
 
 
-def check_encodable(filepath: str | Path) -> str:
+## The maximum length, in bytes once encoded, of a filepath that the EQ3/6 binaries read without truncating it
+MAX_FILEPATH_BYTES = 1024
+
+
+def check_filepath_compatibility(filepath: str | Path) -> str:
     """
     Ensure that a filepath can be passed to the EQ3/6 binaries, returning it as a string.
 
-    On Windows, the binaries receive their arguments in the ANSI code page,
-    which silently replaces characters that it cannot represent with "best fit"
-    substitutes, so that a binary could open a different file. The filepath is
-    therefore checked by encoding it with the ANSI code page (`mbcs`). On other
-    platforms, the filepath is not checked.
+    The binaries silently truncate filepaths longer than `MAX_FILEPATH_BYTES`
+    bytes once encoded. On Windows, they receive filepaths in the ANSI code
+    page, which silently substitutes characters that it cannot represent, so
+    that a binary could open a different file.
 
     @param filepath The filepath to check
 
     @return The filepath as a string
 
-    @throws UnicodeEncodeError on Windows, if the filepath cannot be
-            represented in the ANSI code page
+    @throws UnicodeEncodeError if the filepath cannot be encoded, e.g. on
+            Windows if the ANSI code page cannot represent it
+    @throws ValueError if the encoded filepath is longer than
+            `MAX_FILEPATH_BYTES` bytes
     """
-    arg = str(filepath)
-    if sys.platform.startswith("win"):
-        try:
-            _ = arg.encode("mbcs")
-        except UnicodeEncodeError as err:
-            msg = f"invalid character in {arg!r}"
-            raise UnicodeEncodeError(err.encoding, err.object, err.start, err.end, msg) from err
-    return arg
+    filepath = str(filepath)
+    try:
+        arg = filepath.encode("mbcs") if sys.platform.startswith("win") else os.fsencode(filepath)
+    except UnicodeEncodeError as err:
+        msg = f"invalid character in {filepath!r}"
+        raise UnicodeEncodeError(err.encoding, err.object, err.start, err.end, msg) from err
+    if len(arg) > MAX_FILEPATH_BYTES:
+        msg = f"filepath {filepath!r} exceeds {MAX_FILEPATH_BYTES} bytes"
+        raise ValueError(msg)
+    return filepath
 
 
 __all__ = [
-    "check_encodable",
+    "MAX_FILEPATH_BYTES",
+    "check_filepath_compatibility",
     "get_bin",
     "get_execpath",
     "get_lib",
