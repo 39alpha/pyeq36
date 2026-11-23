@@ -16,6 +16,7 @@ import pytest
 
 from eq36 import eqpt
 from eq36.data1 import Data1
+from eq36.libpyeq36 import Data1Error
 
 from .eqpt_reference import D1F, DATA_DIR, ENCODING, REL_10SF, TOL_3DP, TOL_4DP, TOL_5DP
 
@@ -246,3 +247,29 @@ def test_reads_no_solid_solutions_without_gases(monkeypatch: pytest.MonkeyPatch,
     parsed = Data1.from_file(tmp_path / "nogas.d1")
     assert parsed.gases == {}
     assert parsed.solid_solutions == {}
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["Halit\xe9".encode("latin-1"), "Halt\xe9".encode()],
+    ids=["latin-1", "utf-8"],
+)
+def test_rejects_non_ascii_names(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: bytes) -> None:
+    """
+    Ensure that a data file with a non-ASCII species name is rejected with a `Data1Error` naming the file.
+
+    The data0 file is `cmp.d0` with the mineral `Halite` renamed. `eqpt` copies
+    the name's bytes into the data1 file unchanged. The new name is the same
+    length, in bytes, as `Halite`, so that the fixed-width data0 format is
+    preserved.
+
+    @param monkeypatch The pytest monkeypatch fixture, used to run `eqpt` in `tmp_path`
+    @param tmp_path    A temporary directory in which to write and process the data0 file
+    @param name        The non-ASCII name, encoded
+    """
+    _ = (tmp_path / "nonascii.d0").write_bytes((DATA_DIR / "cmp.d0").read_bytes().replace(b"Halite", name))
+    monkeypatch.chdir(tmp_path)
+    _ = eqpt("nonascii.d0")
+
+    with pytest.raises(Data1Error, match=r"nonascii\.d1"):
+        _ = Data1.from_file(tmp_path / "nonascii.d1")

@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `MAX_FILEPATH_BYTES` bytes, which the binaries would silently truncate.
 - **`Data1.tp_curve`** is a `PiecewisePolynomial` with one piece per temperature
   range, rather than a `TPCurve` built from the first two ranges.
+- **`Data1.from_file`** raises `Data1Error`, naming the file, if a name in the
+  file is not ASCII, rather than `UnicodeDecodeError`.
 
 ### Removed
 

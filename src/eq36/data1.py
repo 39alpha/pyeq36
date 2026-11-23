@@ -20,12 +20,32 @@ import numpy as np
 from typing_extensions import Self
 
 from eq36.curves import PiecewisePolynomial, Polynomial
-from eq36.libpyeq36 import read_data1
+from eq36.libpyeq36 import Data1Error, read_data1
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from eq36.typing import Array1D
+
+
+def _ascii_decode(raw: bytes, filename: Path) -> str:
+    """
+    Decode a name read from a data1 file as ASCII, stripped of whitespace.
+
+    @private
+
+    @param raw      The name, as read from the file
+    @param filename The path to the data1 file, used in the error message
+
+    @return The decoded name
+
+    @throws eq36.libpyeq36.Data1Error if the name is not ASCII
+    """
+    try:
+        return str(raw.strip(), "ascii")
+    except UnicodeDecodeError as e:
+        msg = f"{filename}: name {raw.strip()!r} is not ASCII"
+        raise Data1Error(msg) from e
 
 
 @dataclass(init=False)
@@ -380,6 +400,8 @@ class Data1:
                 for the specific types)
         @throws eq36.libpyeq36.Data1Error if `read_data1` finds that the file
                 is not a valid data1 file
+        @throws eq36.libpyeq36.Data1Error if any element, species or
+                solid-solution name is not ASCII
         @throws RuntimeError if a solid-solution end member occurs more than
                 once
         @throws ValueError if the constructed `tp_curve` (see
@@ -410,7 +432,7 @@ class Data1:
         ):
             if not isinstance(raw_name_obj, bytes):
                 raise TypeError(raw_name_obj)
-            name = str(raw_name_obj.strip(), "ascii")
+            name = _ascii_decode(raw_name_obj, filename)
             element_names.append(name)
             elements[name] = weight
 
@@ -425,11 +447,12 @@ class Data1:
             @return The species name, stripped of whitespace
 
             @throws TypeError if the entry is not `bytes`
+            @throws eq36.libpyeq36.Data1Error if the name is not ASCII
             """
             raw = cast("object", data.species_names[idx])
             if not isinstance(raw, bytes):
                 raise TypeError(raw)
-            return str(raw[:24].strip(), "ascii")
+            return _ascii_decode(raw[:24], filename)
 
         def _make_species(
             start: np.int32,
@@ -450,6 +473,7 @@ class Data1:
 
             @throws TypeError  if a molar mass or name has an unexpected type
             @throws ValueError if `factory` rejects a species
+            @throws eq36.libpyeq36.Data1Error if a name is not ASCII
             """
             result: dict[str, SpeciesT] = {}
             if int(start) <= 0 or int(stop) <= 0:
@@ -482,7 +506,7 @@ class Data1:
 
             if c != 0:
                 break
-            name = str(raw_species_name_obj[0:24].strip(), "ascii")
+            name = _ascii_decode(raw_species_name_obj[0:24], filename)
             a = int(cast("np.int32", data.composition_ranges[0, i]))
             b = int(cast("np.int32", data.composition_ranges[1, i]))
             indices = cast("Array1D[np.int32]", data.composition_element_indices[a - 1 : b])
@@ -518,8 +542,8 @@ class Data1:
             if not isinstance(line, bytes):
                 raise TypeError(line)
 
-            end_member = str(line[:24].strip(), "ascii")
-            solid_solution = str(line[24:].strip(), "ascii")
+            end_member = _ascii_decode(line[:24], filename)
+            solid_solution = _ascii_decode(line[24:], filename)
             end_member_mass_obj = cast("object", data.species_molar_weights[i])
             if not isinstance(end_member_mass_obj, np.float64):
                 raise TypeError(end_member_mass_obj)

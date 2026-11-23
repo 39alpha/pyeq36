@@ -8,17 +8,19 @@ than a data1 file by replacing `eq36.data1.read_data1`.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pytest
 
 from eq36 import data1
 from eq36.data1 import AqueousSpecies, BasisSpecies, Data1, Gas, Liquid, Mineral, Species
-from eq36.libpyeq36 import Data
+from eq36.libpyeq36 import Data, Data1Error
 
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
+
+    from eq36.typing import Array1D
 
 
 ## The species names, other than `H+`, of the payload
@@ -63,7 +65,7 @@ def payload(mocker: MockerFixture) -> Data:
         min_temperature=np.float64(0.0),
         max_temperature_range=np.array([5.0, 10.0]),
         pressure_coefficients=np.array([[1.0, 1.0]]),
-        element_names=np.array([b"H", b"O"]),
+        element_names=np.array([b"H", b"O"], dtype="|S8"),
         atomic_weights=np.array([1.0, 16.0]),
         species_names=np.array(
             [
@@ -391,6 +393,36 @@ def test_from_file_rejects_unexpected_types(
     if basis_only:
         disable_species_ranges(payload)
     with pytest.raises(TypeError):
+        _ = Data1.from_file("fake.d1")
+
+
+@pytest.mark.parametrize(
+    ("field", "index", "value", "basis_only"),
+    [
+        ("element_names", 1, b"O\xe9", False),
+        ("species_names", 1, b"Calcit\xe9                 ", False),
+        ("species_names", 0, b"H\xc3\xa9+                    ", True),
+        ("species_names", 6, b"EM\xe9                     SOLID1", False),
+        ("species_names", 6, b"EM1                     SOLID\xe9", False),
+    ],
+    ids=["element-name", "species-name", "basis-species-name", "end-member-name", "solid-solution-name"],
+)
+def test_from_file_rejects_non_ascii_names(
+    payload: Data, field: str, index: int, value: bytes, *, basis_only: bool
+) -> None:
+    """
+    Ensure that `from_file` raises a `Data1Error`, naming the file, if a name is not ASCII.
+
+    @param payload    The payload returned by the mocked `read_data1`
+    @param field      The name of the payload field to modify
+    @param index      The index of the entry to replace
+    @param value      The replacement entry, containing a non-ASCII byte
+    @param basis_only Whether to disable all but the basis species, so that the basis-species loop reads the value
+    """
+    cast("Array1D[np.bytes_]", getattr(payload, field))[index] = value
+    if basis_only:
+        disable_species_ranges(payload)
+    with pytest.raises(Data1Error, match=r"fake\.d1"):
         _ = Data1.from_file("fake.d1")
 
 
