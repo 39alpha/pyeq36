@@ -31,8 +31,8 @@ def ansi_encodable(text: str) -> bool:
     return True
 
 
-## The non-ASCII character used in filenames by the tests
-NON_ASCII = "μ"
+## The non-ASCII character used in filenames by the tests, which the Windows-1252 code page can represent.
+NON_ASCII = "\N{MICRO SIGN}"
 
 ## Skip a test if the ANSI code page cannot represent `NON_ASCII`
 requires_non_ascii = pytest.mark.skipif(

@@ -15,7 +15,9 @@ import shutil
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .ansi import NON_ASCII
+import pytest
+
+from .ansi import NON_ASCII, ansi_encodable
 from .eqpt_reference import DATA_DIR
 
 if TYPE_CHECKING:
@@ -24,8 +26,18 @@ if TYPE_CHECKING:
 ## The directory containing the EQ3/6 test data
 EQ36_DATA_DIR = DATA_DIR.parent
 
-## Stems of the non-ASCII filenames, one that the Windows-1252 code page can represent and one that it cannot
-NON_ASCII_STEMS = [NON_ASCII, "中"]
+## Stems of the non-ASCII filenames, one that the Windows-1252 code page can represent and one that it cannot.
+NON_ASCII_STEMS = [
+    pytest.param(
+        stem,
+        marks=pytest.mark.xfail(
+            not ansi_encodable(stem),
+            reason=f"the ANSI code page cannot represent {stem!r}",
+            strict=True,
+        ),
+    )
+    for stem in [NON_ASCII, "中"]
+]
 
 
 @dataclass(frozen=True)
