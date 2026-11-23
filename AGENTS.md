@@ -158,6 +158,7 @@ take, details about how code units should be documented, etc...
 - Only include changes relative to the `main` branch. Changes internal to the
   `dev` or a feature branch (e.g. something added and then changed, or added
   and then removed) should not appear.
+- Changes to tests do not belong in the CHANGELOG.
 
 ### Spelling
 
