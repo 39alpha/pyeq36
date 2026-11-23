@@ -17,8 +17,6 @@ from eq36.curves import PiecewisePolynomial, Polynomial, _format_interval
 if TYPE_CHECKING:
     from random import Random
 
-    from pytest_mock import MockerFixture
-
     from eq36.typing import FloatRange
 
 ## Positive infinity
@@ -247,18 +245,6 @@ def test_call_rejects_non_finite_value() -> None:
     """Ensure that calling a polynomial raises a `ValueError` if its value overflows."""
     with pytest.raises(ValueError, match="did not evaluate to a finite number"), pytest.warns(RuntimeWarning):
         _ = poly(None, 0.0, 0.0, 1.0)(1e200)
-
-
-def test_call_requires_float64_evaluation(mocker: MockerFixture) -> None:
-    """
-    Ensure that calling a polynomial raises a `TypeError` if the evaluation does not produce an `np.float64`.
-
-    @param mocker The pytest-mock mocker fixture
-    """
-    p = poly(None, 1.0)
-    _ = mocker.patch("numpy.dot", return_value=1.0)
-    with pytest.raises(TypeError):
-        _ = p(1.0)
 
 
 @pytest.mark.parametrize(

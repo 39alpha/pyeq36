@@ -139,7 +139,6 @@ class Polynomial:
         @return The value of the polynomial at `x`
 
         @throws ValueError if `x` is not in the domain (see `in_domain`)
-        @throws TypeError  if the evaluation does not produce an `np.float64`
         @throws ValueError if the value is not finite, e.g. if it overflows
         """
         if not self.in_domain(x):
@@ -147,9 +146,7 @@ class Polynomial:
             raise ValueError(msg)
 
         x = np.float64(x)
-        value = np.dot(self.coeffs, np.pow(x, np.arange(len(self.coeffs))))
-        if not isinstance(value, np.float64):
-            raise TypeError(value)
+        value: np.float64 = np.dot(self.coeffs, np.pow(x, np.arange(len(self.coeffs))))
         if not np.isfinite(value):
             msg = f"the polynomial did not evaluate to a finite number at {x}"
             raise ValueError(msg)
@@ -237,7 +234,6 @@ class PiecewisePolynomial:
         @return The value of the piecewise polynomial at `x`
 
         @throws ValueError if `x` is not in the domain (see `in_domain`)
-        @throws TypeError  if the evaluation does not produce an `np.float64`
         @throws ValueError if the value is not finite, e.g. if it overflows
         """
         for piece in self.pieces:
