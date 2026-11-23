@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 
 from eq36 import paths
-from eq36.paths import get_bin, get_execpath, get_lib, get_libpath, remove_exe
+from eq36.paths import check_encodable, get_bin, get_execpath, get_lib, get_libpath, remove_exe
+
+from .ansi import ANSI_UNENCODABLE, NON_ASCII, ansi_encodable, requires_non_ascii
 
 
 def test_get_bin() -> None:
@@ -418,3 +420,52 @@ def test_get_libpath_raises_if_lib_is_missing(monkeypatch: pytest.MonkeyPatch, t
         _ = get_libpath("pyeq36")
 
     assert excinfo.value.filename == str((tmp_path / "lib").resolve())
+
+
+@pytest.mark.parametrize(
+    "filepath",
+    [
+        "ok.d1",
+        Path("dir", "ok.d1"),
+        pytest.param(f"{NON_ASCII}.d1", marks=requires_non_ascii),
+        pytest.param(Path(NON_ASCII, f"{NON_ASCII}.d1"), marks=requires_non_ascii),
+    ],
+)
+def test_check_encodable_returns_string(filepath: str | Path) -> None:
+    """
+    Ensure that `check_encodable` returns an encodable filepath as a string.
+
+    The non-ASCII filepaths are skipped if the ANSI code page cannot represent them.
+
+    @param filepath The filepath to check
+    """
+    assert check_encodable(filepath) == str(filepath)
+
+
+@pytest.mark.parametrize("filepath", [f"{ANSI_UNENCODABLE}.d1", Path(ANSI_UNENCODABLE, "ok.d1")])
+def test_check_encodable_does_not_check_other_platforms(monkeypatch: pytest.MonkeyPatch, filepath: str | Path) -> None:
+    """
+    Ensure that `check_encodable` returns a filepath unchecked on platforms other than Windows.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param filepath    A filepath which no ANSI code page other than UTF-8 can represent
+    """
+    monkeypatch.setattr(sys, "platform", "linux")
+    assert check_encodable(filepath) == str(filepath)
+
+
+@pytest.mark.skipif(not sys.platform.startswith("win"), reason="the ANSI code page is only used on Windows")
+@pytest.mark.skipif(ansi_encodable(ANSI_UNENCODABLE), reason="the ANSI code page is UTF-8")
+@pytest.mark.parametrize("filepath", [f"{ANSI_UNENCODABLE}.d1", Path(ANSI_UNENCODABLE, "ok.d1")])
+def test_check_encodable_raises_on_windows(filepath: str | Path) -> None:
+    """
+    Ensure that `check_encodable` raises a `UnicodeEncodeError`, naming the filepath, if it is unencodable on Windows.
+
+    @param filepath A filepath which no ANSI code page other than UTF-8 can represent
+    """
+    with pytest.raises(UnicodeEncodeError) as excinfo:
+        _ = check_encodable(filepath)
+
+    assert repr(str(filepath)) in str(excinfo.value)
+    assert excinfo.value.object == str(filepath)
+    assert isinstance(excinfo.value.__cause__, UnicodeEncodeError)

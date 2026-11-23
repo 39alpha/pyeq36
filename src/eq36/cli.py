@@ -19,7 +19,7 @@ import os
 import sys
 from pathlib import Path
 
-from eq36.paths import get_execpath, remove_exe
+from eq36.paths import check_encodable, get_execpath, remove_exe
 
 
 def _run(cmd: str) -> None:
@@ -39,12 +39,6 @@ def _run(cmd: str) -> None:
 
     @param cmd The name of the command to be run, e.g. `"eq6"`
 
-    @note If `cmd` cannot be run, e.g. the `bin` directory or the executable
-          does not exist, the executable is the running shim, or it cannot be
-          executed, the process exits with status 1, writing a message
-          prefixed with `cmd` to `stderr`. Only `OSError` and `RuntimeError`
-          are handled this way; any other exception propagates.
-
     @warning This function calls `os.execv` which replaces the current running
     process, so it does not return on success. As such, you probably don't
     want to call it from a script unless you're not planning on doing anything
@@ -61,8 +55,8 @@ def _run(cmd: str) -> None:
             )
             sys.exit(f"{cmd}: {msg}")
 
-        os.execv(target, sys.argv)
-    except (OSError, RuntimeError) as err:
+        os.execv(target, [sys.argv[0], *(check_encodable(arg) for arg in sys.argv[1:])])
+    except (OSError, RuntimeError, UnicodeEncodeError) as err:
         sys.exit(f"{cmd}: {err}")
 
 

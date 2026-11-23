@@ -11,6 +11,7 @@ import eq36
 from eq36 import Eq3Error, Eq6Error, Eq36Error, EqptError, eq3nr, eq6, eqpt
 from eq36.paths import get_execpath
 
+from .ansi import ANSI_UNENCODABLE, ansi_encodable
 from .runs import NON_ASCII_STEMS, RUNS, Run, copy_inputs
 
 if TYPE_CHECKING:
@@ -225,3 +226,70 @@ def test_commands_run_files_with_non_ascii_names(
 
     for extension in run.extensions:
         assert (tmp_path / f"{stem}{extension}").is_file()
+
+
+class ProcessStartedError(Exception):
+    """Raised by the `Popen` stub to stop a command once it would have started a process."""
+
+
+@pytest.fixture
+def popen_args(monkeypatch: pytest.MonkeyPatch) -> list[list[object]]:
+    """
+    Replace `Popen` in `eq36.commands` with a stub which records its command line and raises `ProcessStartedError`.
+
+    @param monkeypatch The pytest monkeypatch fixture
+
+    @return A list to which the command line of each call is appended
+    """
+    calls: list[list[object]] = []
+
+    def stub(args: list[object], *_args: object, **_kwargs: object) -> None:
+        calls.append(args)
+        raise ProcessStartedError
+
+    monkeypatch.setattr(eq36.commands, "Popen", stub)
+    return calls
+
+
+@pytest.mark.parametrize(
+    ("command", "args"),
+    [
+        pytest.param(eqpt, (f"{ANSI_UNENCODABLE}.d0",), id="eqpt"),
+        pytest.param(eqpt, (Path(f"{ANSI_UNENCODABLE}.d0"),), id="eqpt-path"),
+        pytest.param(eq3nr, (f"{ANSI_UNENCODABLE}.d1", "input.3i"), id="eq3nr-data1"),
+        pytest.param(eq3nr, ("data1.d1", f"{ANSI_UNENCODABLE}.3i"), id="eq3nr-input"),
+        pytest.param(eq6, (f"{ANSI_UNENCODABLE}.d1", "input.6i"), id="eq6-data1"),
+        pytest.param(eq6, ("data1.d1", f"{ANSI_UNENCODABLE}.6i"), id="eq6-input"),
+    ],
+)
+def test_commands_reject_names_the_ansi_code_page_cannot_represent(
+    popen_args: list[list[object]],
+    command: Callable[..., tuple[bytes, bytes]],
+    args: tuple[str | Path, ...],
+) -> None:
+    """
+    Ensure that `eqpt`, `eq3nr` and `eq6` raise `UnicodeEncodeError`, before starting a process, for unencodable names.
+
+    On Windows, the executables receive their arguments in the ANSI code page,
+    which replaces characters that it cannot represent with "best fit"
+    substitutes, so that the executable would silently open a different file.
+    One of the names contains an emoji, which no ANSI code page other than
+    UTF-8 can represent. Where the ANSI code page can represent every name,
+    i.e. on other platforms or a UTF-8 code page, the names must instead be
+    passed on to the executable unchanged.
+
+    @param popen_args The recorded command lines of calls to `Popen`
+    @param command    The function under test
+    @param args       The files to pass to `command`, one of which contains an emoji
+    """
+    if all(ansi_encodable(str(arg)) for arg in args):
+        with pytest.raises(ProcessStartedError):
+            _ = command(*args)
+
+        assert len(popen_args) == 1
+        assert popen_args[0][1:] == [str(arg) for arg in args]
+    else:
+        with pytest.raises(UnicodeEncodeError):
+            _ = command(*args)
+
+        assert popen_args == []

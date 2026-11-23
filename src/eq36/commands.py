@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import assert_never, override
 
-from eq36.paths import get_execpath
+from eq36.paths import check_encodable, get_execpath
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -315,11 +315,12 @@ def eqpt(data0: str | Path, timeout: float | None = None, error_check: bool = Tr
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if the `eqpt` executable is not found
+    @throws UnicodeEncodeError on Windows, if a filepath cannot be represented in the ANSI code page
     @throws OSError if the executable cannot be executed
     """
     return _run(
         get_execpath("eqpt"),
-        str(data0),
+        check_encodable(data0),
         timeout=timeout,
         fname=data0,
         error_type=EqptError,
@@ -352,12 +353,13 @@ def eq3nr(
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if the `eq3nr` executable is not found
+    @throws UnicodeEncodeError on Windows, if a filepath cannot be represented in the ANSI code page
     @throws OSError if the executable cannot be executed
     """
     return _run(
         get_execpath("eq3nr"),
-        str(data1),
-        str(threei),
+        check_encodable(data1),
+        check_encodable(threei),
         timeout=timeout,
         fname=threei,
         error_type=Eq3Error,
@@ -390,12 +392,13 @@ def eq6(
     @throws FileNotFoundError if the `bin` directory does not exist
     @throws NotADirectoryError if the `bin` path is not a directory
     @throws FileNotFoundError if the `eq6` executable is not found
+    @throws UnicodeEncodeError on Windows, if a filepath cannot be represented in the ANSI code page
     @throws OSError if the executable cannot be executed
     """
     return _run(
         get_execpath("eq6"),
-        str(data1),
-        str(sixi),
+        check_encodable(data1),
+        check_encodable(sixi),
         timeout=timeout,
         fname=sixi,
         error_type=Eq6Error,

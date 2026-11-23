@@ -12,6 +12,7 @@ import pytest
 from eq36 import cli
 from eq36.paths import get_execpath
 
+from .ansi import ANSI_UNENCODABLE, ansi_encodable
 from .runs import NON_ASCII_STEMS, RUNS, Run, copy_inputs
 
 if TYPE_CHECKING:
@@ -244,3 +245,49 @@ def test_shim_runs_files_with_non_ascii_names(tmp_path: Path, run: Run, stem: st
 
     for extension in run.extensions:
         assert (tmp_path / f"{stem}{extension}").is_file(), (stdout, stderr)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [[f"{ANSI_UNENCODABLE}.d1", "input"], ["data1", f"{ANSI_UNENCODABLE}.in"]],
+    ids=["first", "second"],
+)
+@pytest.mark.parametrize(("shim", "executable"), [(cli.eqpt, "eqpt"), (cli.eq3nr, "eq3nr"), (cli.eq6, "eq6")])
+def test_shim_rejects_names_the_ansi_code_page_cannot_represent(
+    monkeypatch: pytest.MonkeyPatch,
+    execv_args: list[tuple[Path, list[str]]],
+    shim: Callable[[], None],
+    executable: str,
+    args: list[str],
+) -> None:
+    """
+    Ensure that each shim exits with a message, and the process is not replaced, if an argument is unencodable.
+
+    On Windows, the executables receive their arguments in the ANSI code page,
+    which replaces characters that it cannot represent with "best fit"
+    substitutes, so that the executable would silently open a different file.
+    One of the arguments contains an emoji, which no ANSI code page other than
+    UTF-8 can represent. Where the ANSI code page can represent every argument,
+    i.e. on other platforms or a UTF-8 code page, the process must instead be
+    replaced, passing `sys.argv` unchanged.
+
+    @param monkeypatch The pytest monkeypatch fixture
+    @param execv_args  The recorded arguments of calls to `os.execv`
+    @param shim        The shim under test
+    @param executable  The name of the executable that `shim` should run
+    @param args        The arguments following the program name, one of which contains an emoji
+    """
+    argv = [executable, *args]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    if all(ansi_encodable(arg) for arg in args):
+        shim()
+
+        assert execv_args == [(get_execpath(executable), argv)]
+    else:
+        with pytest.raises(SystemExit) as excinfo:
+            shim()
+
+        assert isinstance(excinfo.value.code, str)
+        assert excinfo.value.code.startswith(f"{executable}: ")
+        assert execv_args == []

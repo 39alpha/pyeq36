@@ -34,6 +34,9 @@ def ansi_encodable(text: str) -> bool:
 ## The non-ASCII character used in filenames by the tests, which the Windows-1252 code page can represent.
 NON_ASCII = "\N{MICRO SIGN}"
 
+## A non-ASCII character which no ANSI code page other than UTF-8 (code page 65001) can represent
+ANSI_UNENCODABLE = "\N{GRINNING FACE}"
+
 ## Skip a test if the ANSI code page cannot represent `NON_ASCII`
 requires_non_ascii = pytest.mark.skipif(
     not ansi_encodable(NON_ASCII),

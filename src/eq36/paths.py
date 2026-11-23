@@ -161,7 +161,35 @@ def get_libpath(lib: str | Path) -> Path:
     return libpath
 
 
+def check_encodable(filepath: str | Path) -> str:
+    """
+    Ensure that a filepath can be passed to the EQ3/6 binaries, returning it as a string.
+
+    On Windows, the binaries receive their arguments in the ANSI code page,
+    which silently replaces characters that it cannot represent with "best fit"
+    substitutes, so that a binary could open a different file. The filepath is
+    therefore checked by encoding it with the ANSI code page (`mbcs`). On other
+    platforms, the filepath is not checked.
+
+    @param filepath The filepath to check
+
+    @return The filepath as a string
+
+    @throws UnicodeEncodeError on Windows, if the filepath cannot be
+            represented in the ANSI code page
+    """
+    arg = str(filepath)
+    if sys.platform.startswith("win"):
+        try:
+            _ = arg.encode("mbcs")
+        except UnicodeEncodeError as err:
+            msg = f"invalid character in {arg!r}"
+            raise UnicodeEncodeError(err.encoding, err.object, err.start, err.end, msg) from err
+    return arg
+
+
 __all__ = [
+    "check_encodable",
     "get_bin",
     "get_execpath",
     "get_lib",

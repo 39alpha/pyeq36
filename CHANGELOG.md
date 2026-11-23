@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`check_encodable`** in `eq36.paths`, which checks that a file path can be
+  passed to the EQ3/6 binaries.
+
+### Changed
+
+- **`eqpt`, `eq3nr`, `eq6` and their shims** reject filenames that the Windows
+  ANSI code page cannot represent, rather than letting Windows silently
+  substitute a different filename.
+
 ## [v0.2.0]
 
 ### Added
