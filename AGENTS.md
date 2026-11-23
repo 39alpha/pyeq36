@@ -150,6 +150,8 @@ take, details about how code units should be documented, etc...
   current behavior and flag the discrepancy rather than documenting the
   intended behavior.
 - Document the parameters of parametrized tests and fixtures with `@param`.
+- Do not include implementation details that are not immediately relevant to a
+  user of the public API.
 
 ### Changelog
 
