@@ -361,7 +361,7 @@ def test_from_file_rejects_non_ascii_names(
     payload: Data, field: str, index: int, value: bytes, *, basis_only: bool
 ) -> None:
     """
-    Ensure that `from_file` raises a `Data1Error`, naming the file, if a name is not ASCII.
+    Ensure that `from_file` raises a `Data1Error`, naming the file once, if a name is not ASCII.
 
     @param payload    The payload returned by the mocked `read_data1`
     @param field      The name of the payload field to modify
@@ -372,8 +372,57 @@ def test_from_file_rejects_non_ascii_names(
     cast("Array1D[np.bytes_]", getattr(payload, field))[index] = value
     if basis_only:
         disable_species_ranges(payload)
-    with pytest.raises(Data1Error, match=r"fake\.d1"):
+    with pytest.raises(Data1Error, match=r"fake\.d1") as excinfo:
         _ = Data1.from_file("fake.d1")
+    assert str(excinfo.value).count("fake.d1") == 1
+
+
+@pytest.mark.parametrize(
+    ("field", "index", "value", "match"),
+    [
+        ("species_molar_weights", 1, -1.0, "species 'Calcite' has negative molar mass"),
+        ("species_molar_weights", 1, np.nan, "species 'Calcite' has non-finite molar mass"),
+        ("volumes", 0, np.nan, r"basis species 'H\+' has non-finite volume"),
+        ("species_molar_weights", 6, np.nan, "end member 'EM1' of solid solution 'SOLID1' has non-finite molar mass"),
+        ("pressure_coefficients", (0, 1), 2.0, "polynomials 0 and 1 do not agree"),
+    ],
+    ids=["negative-molar-mass", "nan-molar-mass", "nan-volume", "nan-end-member-molar-mass", "discontinuous-curve"],
+)
+def test_from_file_wraps_invalid_contents(
+    payload: Data, field: str, index: int | tuple[int, int], value: float, match: str
+) -> None:
+    """
+    Ensure that `from_file` raises a `Data1Error`, prefixed with the filename, if a constructed object is invalid.
+
+    @param payload The payload returned by the mocked `read_data1`
+    @param field   The name of the payload field to modify
+    @param index   The index of the entry to replace
+    @param value   The replacement entry, which makes the constructed object invalid
+    @param match   A pattern matching the constructor's error message
+    """
+    cast("Array1D[np.float64]", getattr(payload, field))[index] = value
+    with pytest.raises(Data1Error, match=rf"^fake\.d1: {match}") as excinfo:
+        _ = Data1.from_file("fake.d1")
+    assert isinstance(excinfo.value.__cause__, ValueError)
+    assert not isinstance(excinfo.value.__cause__, Data1Error)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [Data1Error("bad.d1: not a data1 file"), UnicodeEncodeError("mbcs", "bad.d1", 0, 1, "unrepresentable")],
+    ids=["data1-error", "unicode-encode-error"],
+)
+def test_from_file_does_not_wrap_read_errors(mocker: MockerFixture, error: ValueError) -> None:
+    """
+    Ensure that `from_file` re-raises a `Data1Error` or `UnicodeEncodeError` from `read_data1` unchanged.
+
+    @param mocker The pytest-mock mocker fixture
+    @param error  The error raised by the mocked `read_data1`
+    """
+    _ = mocker.patch.object(data1, "read_data1", side_effect=error)
+    with pytest.raises(type(error)) as excinfo:
+        _ = Data1.from_file("bad.d1")
+    assert excinfo.value is error
 
 
 @pytest.mark.parametrize(

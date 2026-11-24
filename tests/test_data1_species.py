@@ -12,8 +12,14 @@ from eq36.data1 import AqueousSpecies, BasisSpecies, SolidSolution
 
 @pytest.mark.parametrize(
     ("name", "molar_mass", "match"),
-    [("", 1.0, "empty name"), ("H2O", -1.0, "negative molar mass")],
-    ids=["empty-name", "negative-molar-mass"],
+    [
+        ("", 1.0, "empty name"),
+        ("H2O", -1.0, "negative molar mass"),
+        ("H2O", np.nan, "non-finite molar mass"),
+        ("H2O", np.inf, "non-finite molar mass"),
+        ("H2O", -np.inf, "non-finite molar mass"),
+    ],
+    ids=["empty-name", "negative-molar-mass", "nan-molar-mass", "infinite-molar-mass", "negative-infinite-molar-mass"],
 )
 def test_species_rejects_invalid_arguments(name: str, molar_mass: float, match: str) -> None:
     """
@@ -32,8 +38,19 @@ def test_species_rejects_invalid_arguments(name: str, molar_mass: float, match: 
     [
         ({"H": -1}, None, "negative count"),
         ({"H": 1}, np.float64(-1.0), "negative volume"),
+        ({"H": 1}, np.float64(np.nan), "non-finite volume"),
+        ({"H": 1}, np.float64(np.inf), "non-finite volume"),
+        ({}, np.float64(-1.0), "negative volume"),
+        ({}, np.float64(np.nan), "non-finite volume"),
     ],
-    ids=["negative-count", "negative-volume"],
+    ids=[
+        "negative-count",
+        "negative-volume",
+        "nan-volume",
+        "infinite-volume",
+        "empty-composition-negative-volume",
+        "empty-composition-nan-volume",
+    ],
 )
 def test_basis_species_rejects_invalid_arguments(
     composition: dict[str, int],
@@ -55,10 +72,12 @@ def test_basis_species_rejects_invalid_arguments(
     ("name", "end_members", "match"),
     [
         ("", {"A": np.float64(1.0)}, "empty name"),
-        ("SS", {}, "without end members"),
-        ("SS", {"A": np.float64(-1.0)}, "negative end member molar mass"),
+        ("SS", {}, "no end members"),
+        ("SS", {"A": np.float64(-1.0)}, "end member 'A' of solid solution 'SS' has negative molar mass"),
+        ("SS", {"A": np.float64(np.nan)}, "end member 'A' of solid solution 'SS' has non-finite molar mass"),
+        ("SS", {"A": np.float64(np.inf)}, "end member 'A' of solid solution 'SS' has non-finite molar mass"),
     ],
-    ids=["empty-name", "no-end-members", "negative-molar-mass"],
+    ids=["empty-name", "no-end-members", "negative-molar-mass", "nan-molar-mass", "infinite-molar-mass"],
 )
 def test_solid_solution_rejects_invalid_arguments(name: str, end_members: dict[str, np.float64], match: str) -> None:
     """
@@ -83,17 +102,17 @@ def solid_solution() -> SolidSolution:
 
 
 @pytest.mark.parametrize(
-    ("mole_fractions", "error", "match"),
+    ("mole_fractions", "match"),
     [
-        ({}, ValueError, "no mole_fractions"),
-        ({"A": np.float64(1.0), "C": np.float64(1.0)}, KeyError, "unknown end member"),
-        ({"A": np.float64(1.0)}, KeyError, "missing mole fractions"),
-        ({"A": np.float64(-0.5), "B": np.float64(1.5)}, ValueError, "is negative"),
-        ({"A": np.float64(np.nan), "B": np.float64(1.0)}, ValueError, "is not finite"),
-        ({"A": np.float64(np.inf), "B": np.float64(1.0)}, ValueError, "is not finite"),
-        ({"A": np.float64(-np.inf), "B": np.float64(1.0)}, ValueError, "is not finite"),
-        ({"A": np.float64(0.0), "B": np.float64(0.0)}, ValueError, "sum to a positive value"),
-        ({"A": np.float64(1e308), "B": np.float64(1e308)}, ValueError, "sum to a finite value"),
+        ({}, "no mole_fractions"),
+        ({"A": np.float64(1.0), "C": np.float64(1.0)}, "unknown end member"),
+        ({"A": np.float64(1.0)}, "missing mole fractions"),
+        ({"A": np.float64(-0.5), "B": np.float64(1.5)}, "is negative"),
+        ({"A": np.float64(np.nan), "B": np.float64(1.0)}, "is not finite"),
+        ({"A": np.float64(np.inf), "B": np.float64(1.0)}, "is not finite"),
+        ({"A": np.float64(-np.inf), "B": np.float64(1.0)}, "is not finite"),
+        ({"A": np.float64(0.0), "B": np.float64(0.0)}, "sum to a positive value"),
+        ({"A": np.float64(1e308), "B": np.float64(1e308)}, "sum to a finite value"),
     ],
     ids=[
         "empty",
@@ -110,18 +129,16 @@ def solid_solution() -> SolidSolution:
 def test_solid_solution_molar_mass_rejects_invalid_fractions(
     solid_solution: SolidSolution,
     mole_fractions: dict[str, np.float64],
-    error: type[Exception],
     match: str,
 ) -> None:
     """
-    Ensure that `SolidSolution.molar_mass` raises for invalid mole fractions.
+    Ensure that `SolidSolution.molar_mass` raises a `ValueError` for invalid mole fractions.
 
     @param solid_solution The solid solution
     @param mole_fractions The end-member mole fractions
-    @param error          The expected type of exception
     @param match          A pattern matching the expected error message
     """
-    with pytest.raises(error, match=match):
+    with pytest.raises(ValueError, match=match):
         _ = solid_solution.molar_mass(mole_fractions)
 
 

@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   range, rather than a `TPCurve` built from the first two ranges.
 - **`Data1.from_file`** raises `Data1Error`, naming the file, if a name in the
   file is not ASCII, rather than `UnicodeDecodeError`.
+- **`Data1.from_file`** raises `Data1Error`, naming the file, if the curve, a
+  species or a solid solution it constructs is invalid.
+- **`Species`, `BasisSpecies` and `SolidSolution`** reject non-finite molar
+  masses and volumes.
+- **`SolidSolution.molar_mass`** raises `ValueError`, rather than `KeyError`, if
+  the mole fractions name an unknown end member or omit one.
 
 ### Removed
 

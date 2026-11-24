@@ -59,20 +59,26 @@ class Species:
         Construct a `Species`.
 
         @param name       The (non-empty) name of the species
-        @param molar_mass The (non-negative) molar mass (g/mol) of the species
+        @param molar_mass The (finite, non-negative) molar mass (g/mol) of the
+                          species
 
         @throws ValueError if `name` is empty
+        @throws ValueError if `molar_mass` is not finite (NaN or infinite)
         @throws ValueError if `molar_mass` is negative
         """
         self.name = name
         self.molar_mass = molar_mass
 
         if self.name == "":
-            msg = "cannot construct Species with empty name"
+            msg = "species has empty name"
+            raise ValueError(msg)
+
+        if not np.isfinite(self.molar_mass):
+            msg = f"species {name!r} has non-finite molar mass"
             raise ValueError(msg)
 
         if self.molar_mass < 0:
-            msg = "cannot construct Species with negative molar mass"
+            msg = f"species {name!r} has negative molar mass"
             raise ValueError(msg)
 
 
@@ -104,16 +110,19 @@ class BasisSpecies(Species):
         Construct a `BasisSpecies`.
 
         @param name        The (non-empty) name of the species
-        @param molar_mass  The (non-negative) molar mass (g/mol) of the species
+        @param molar_mass  The (finite, non-negative) molar mass (g/mol) of the
+                           species
         @param composition The elemental composition, mapping element names to
                            (non-negative) counts
         @param charge      The electrical charge of the species
-        @param volume      The (non-negative) molar volume of the species, or
-                           `None` if unknown
+        @param volume      The (finite, non-negative) molar volume of the
+                           species, or `None` if unknown
 
         @throws ValueError if `name` is empty
+        @throws ValueError if `molar_mass` is not finite (NaN or infinite)
         @throws ValueError if `molar_mass` is negative
         @throws ValueError if any count in `composition` is negative
+        @throws ValueError if `volume` is not finite (NaN or infinite)
         @throws ValueError if `volume` is negative
         """
         super().__init__(name=name, molar_mass=molar_mass)
@@ -121,14 +130,19 @@ class BasisSpecies(Species):
         self.charge = charge
         self.volume = volume
 
-        for count in self.composition.values():
+        for component, count in self.composition.items():
             if count < 0:
-                msg = "cannot construct a BasisSpecies with a component with negative count"
+                msg = f"component {component!r} of basis species {self.name!r} has negative count"
                 raise ValueError(msg)
 
-        if self.volume is not None and self.volume < 0:
-            msg = "cannot construct a BasisSpecies with negative volume"
-            raise ValueError(msg)
+        if self.volume is not None:
+            if not np.isfinite(self.volume):
+                msg = f"basis species {self.name!r} has non-finite volume"
+                raise ValueError(msg)
+
+            if self.volume < 0:
+                msg = f"basis species {self.name!r} has negative volume"
+                raise ValueError(msg)
 
 
 @dataclass(init=False)
@@ -166,26 +180,33 @@ class SolidSolution:
 
         @param name        The (non-empty) name of the solid solution
         @param end_members The (non-empty) end members, mapping end-member
-                           names to (non-negative) molar masses (g/mol)
+                           names to (finite, non-negative) molar masses
+                           (g/mol)
 
         @throws ValueError if `name` is empty
         @throws ValueError if `end_members` is empty
+        @throws ValueError if any end-member molar mass is not finite (NaN or
+                infinite)
         @throws ValueError if any end-member molar mass is negative
         """
         self.name = name
         self.end_members = end_members
 
         if self.name == "":
-            msg = "cannot construct SolidSolution with empty name"
+            msg = "solid solution has empty name"
             raise ValueError(msg)
 
         if not self.end_members:
-            msg = "cannot construct SolidSolution without end members"
+            msg = f"solid solution {self.name!r} has no end members"
             raise ValueError(msg)
 
-        for molar_mass in self.end_members.values():
+        for end_member_name, molar_mass in self.end_members.items():
+            if not np.isfinite(molar_mass):
+                msg = f"end member {end_member_name!r} of solid solution {self.name!r} has non-finite molar mass"
+                raise ValueError(msg)
+
             if molar_mass < 0:
-                msg = "cannot construct SolidSolution with negative end member molar mass"
+                msg = f"end member {end_member_name!r} of solid solution {self.name!r} has negative molar mass"
                 raise ValueError(msg)
 
     def molar_mass(self, mole_fractions: dict[str, np.float64]) -> np.float64:
@@ -203,8 +224,8 @@ class SolidSolution:
         @return The weighted-average molar mass (g/mol)
 
         @throws ValueError if `mole_fractions` is empty
-        @throws KeyError   if `mole_fractions` names an unknown end member
-        @throws KeyError   if `mole_fractions` omits any end member
+        @throws ValueError if `mole_fractions` names an unknown end member
+        @throws ValueError if `mole_fractions` omits any end member
         @throws ValueError if any mole fraction is not finite (NaN or infinite)
         @throws ValueError if any mole fraction is negative
         @throws ValueError if the mole fractions sum to a non-finite value
@@ -218,12 +239,12 @@ class SolidSolution:
         missing = set(mole_fractions) - set(self.end_members)
         if missing:
             msg = f"unknown end member(s) for solid solution {self.name!r}: {sorted(missing)}"
-            raise KeyError(msg)
+            raise ValueError(msg)
 
         missing = set(self.end_members) - set(mole_fractions)
         if missing:
             msg = f"missing mole fractions for end member(s) for solid solution {self.name!r}: {sorted(missing)}"
-            raise KeyError(msg)
+            raise ValueError(msg)
 
         for end_member, fraction in mole_fractions.items():
             if not np.isfinite(fraction):
@@ -326,6 +347,7 @@ def _make_basis_species(data: Data, element_names: list[str], filename: Path) ->
             charge=int(charge),
             volume=None if volume == 0.0 else volume,
         )
+
     return basis_species
 
 
@@ -550,8 +572,8 @@ class Data1:
         @throws ValueError if `name` is not a solid solution and
                 `mole_fractions` is not `None`
         @throws KeyError   if `name` is not found
-        @throws ValueError if `SolidSolution.molar_mass` raises `ValueError`
-        @throws KeyError   if `SolidSolution.molar_mass` raises `KeyError`
+        @throws ValueError if `SolidSolution.molar_mass` rejects
+                `mole_fractions`
         """
         if name in self.solid_solutions:
             if mole_fractions is None:
@@ -623,34 +645,37 @@ class Data1:
                 is not a valid data1 file
         @throws eq36.libpyeq36.Data1Error if any element, species or
                 solid-solution name is not ASCII
-        @throws ValueError if the constructed `tp_curve` (see
+        @throws eq36.libpyeq36.Data1Error if the constructed `tp_curve` (see
                 `eq36.curves.PiecewisePolynomial`), or any species or solid
-                solution, is invalid
+                solution, is invalid; the message is that of the underlying
+                `ValueError`, prefixed with the filename
         """
         filename = Path(filename)
-
-        data = read_data1(filename)
-
-        tp_curve = PiecewisePolynomial(
-            [
-                Polynomial((data.min_temperature, data.max_temperature_range[0]), data.pressure_coefficients[:, 0]),
-                *(
-                    Polynomial(tuple(data.max_temperature_range[i - 1 : i + 1]), data.pressure_coefficients[:, i])
-                    for i in range(1, len(data.max_temperature_range))
-                ),
-            ]
-        )
-
-        elements, element_names = _make_elements(data, filename)
-
-        return cls(
-            filename=filename,
-            elements=elements,
-            basis_species=_make_basis_species(data, element_names, filename),
-            aqueous_species=_make_aqueous_species(data, filename),
-            minerals=_make_mineral_species(data, filename),
-            liquids=_make_liquid_species(data, filename),
-            gases=_make_gas_species(data, filename),
-            solid_solutions=_make_solid_solutions(data, filename),
-            tp_curve=tp_curve,
-        )
+        try:
+            data = read_data1(filename)
+            tp_curve = PiecewisePolynomial(
+                [
+                    Polynomial((data.min_temperature, data.max_temperature_range[0]), data.pressure_coefficients[:, 0]),
+                    *(
+                        Polynomial(tuple(data.max_temperature_range[i - 1 : i + 1]), data.pressure_coefficients[:, i])
+                        for i in range(1, len(data.max_temperature_range))
+                    ),
+                ]
+            )
+            elements, element_names = _make_elements(data, filename)
+            return cls(
+                filename=filename,
+                elements=elements,
+                basis_species=_make_basis_species(data, element_names, filename),
+                aqueous_species=_make_aqueous_species(data, filename),
+                minerals=_make_mineral_species(data, filename),
+                liquids=_make_liquid_species(data, filename),
+                gases=_make_gas_species(data, filename),
+                solid_solutions=_make_solid_solutions(data, filename),
+                tp_curve=tp_curve,
+            )
+        except (UnicodeEncodeError, Data1Error):
+            raise
+        except ValueError as err:
+            msg = f"{filename}: {err}"
+            raise Data1Error(msg) from err
